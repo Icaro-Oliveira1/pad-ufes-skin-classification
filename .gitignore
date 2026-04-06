@@ -1,0 +1,24 @@
+# Dataset de imagens — 3.4 GB, obter separadamente
+data/raw/images/*
+!data/raw/images/.gitkeep
+
+# Ambiente virtual
+.venv/
+
+# Claude Code
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Modelos treinados (se salvar checkpoints futuramente)
+*.pth
+*.pt
+*.ckpt

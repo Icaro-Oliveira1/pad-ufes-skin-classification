@@ -1,0 +1,13 @@
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+scikit-image
+opencv-python
+torch
+torchvision
+jupyterlab
+tqdm
+Pillow
+imbalanced-learn
