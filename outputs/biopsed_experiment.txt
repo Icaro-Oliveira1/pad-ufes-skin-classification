@@ -1,0 +1,27 @@
+Experimento de validação do impacto de `biopsed`
+Gerado por scripts/biopsed_experiment.py
+
+Modelo                 F1-macro   Acurácia    AUC-ROC
+-------------------------------------------------------
+RF com biopsed           0.6553     0.7159     0.9352
+RF sem biopsed           0.6418     0.7130     0.9272
+DT com biopsed           0.5879     0.6406     0.8515
+DT sem biopsed           0.4997     0.5739     0.8222
+
+Deltas (com - sem biopsed):
+  RF :  ΔF1 = +0.0135   ΔAUC = +0.0080
+  DT :  ΔF1 = +0.0881   ΔAUC = +0.0293
+
+Interpretação:
+  RF: queda < 2pp → diferença NEGLIGENCIÁVEL — biopsed é preditor legítimo
+  DT: queda > 5pp → leakage RELEVANTE — reportar ambas as versões
+
+F1 por classe (com vs sem biopsed):
+  Classe     RF com   RF sem        Δ     DT com   DT sem        Δ
+  ------------------------------------------------------------
+  ACK         0.699    0.731   -0.032      0.667    0.670   -0.003
+  BCC         0.790    0.776   +0.014      0.718    0.635   +0.083
+  MEL         0.737    0.750   -0.013      0.471    0.333   +0.137
+  NEV         0.812    0.778   +0.034      0.694    0.658   +0.037
+  SCC         0.304    0.250   +0.054      0.322    0.309   +0.013
+  SEK         0.590    0.567   +0.023      0.656    0.393   +0.263
