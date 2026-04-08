@@ -300,3 +300,105 @@ Três bullets curtos:
 | **Total partes 1 + 2** | **~6:30 min** |
 
 Sobram ~8:30 min para PDI, modelo, resultados e conclusões.
+
+---
+
+# Planejamento dos Slides — Parte 3: Pré-processamento das Imagens (PDI)
+
+> **Contexto:** terceira parte da apresentação.
+> Esta seção ocupa **1 slide** e **~90 segundos**.
+> Objetivo: mostrar o pipeline de 4 etapas aplicado às imagens, explicar
+> brevemente o Otsu (que é a etapa técnica mais interessante), e reportar
+> a qualidade da segmentação.
+
+---
+
+## Slide 7 — Pré-processamento das Imagens (PDI)
+
+**Título:** Pré-processamento das Imagens — 4 etapas + Otsu
+
+**Layout:** fluxograma horizontal de 4 caixas no topo + caixa de destaque
+do Otsu no meio (com mini-histograma ilustrativo) + 2 mini-cards de
+resultados no rodapé.
+
+### Fluxograma (topo, horizontal — 4 caixas)
+
+```
+  raw PNG           1. Hair removal      2. Color constancy    3. Segmentação       4. Crop + resize
+  189–3096 px   →   DullRazor        →   Shades of Gray    →   Otsu no LAB L*   →   bbox quadrada
+  RGB / RGBA        (blackhat +          (Finlayson, p=6)      + fallback            + padding 10%
+                     inpaint)            normaliza celular     center-crop           → 256×256
+```
+
+**Destaque visual:** seta abaixo de cada etapa indicando o "problema que
+ela resolve":
+- Hair removal → *elimina pelo que contamina features de textura*
+- Color constancy → *normaliza balanço de branco entre smartphones*
+- Segmentação → *isola a lesão — não extrair features de pele + fundo*
+- Crop + resize → *preserva aspect ratio — não distorce assimetria*
+
+### Caixa central — "Como o Otsu funciona" (explicação compacta)
+
+**Layout:** caixa larga com título + 3 bullets curtos à esquerda + mini
+histograma à direita.
+
+**Título:** Otsu (1979) — threshold binário automático
+
+**Bullets:**
+- No canal **L\* do LAB**, o histograma de uma foto dermatológica é
+  **bimodal**: um pico de pele clara, um pico de lesão escura
+- Otsu varre os 256 valores possíveis de threshold e escolhe aquele que
+  **maximiza a variância *entre* os dois grupos** (= minimiza a dispersão
+  dentro de cada um)
+- **Zero treinado**, ~5 ms por imagem, interpretável — não depende de
+  dataset de segmentação nem de GPU
+
+**Mini-histograma ilustrativo:** duas colinas bem separadas, com uma linha
+vermelha tracejada no vale indicando `T_ótimo`. Abaixo, label:
+> *maximiza `σ²_entre = ω₀·ω₁·(μ₀ − μ₁)²`*
+
+**Caixa discreta abaixo do histograma:**
+> *Fallback quando Otsu falha (máscara < 5% ou > 95% da imagem): retângulo
+> central 60% × 60%. Aciona em ~1.5% dos casos.*
+
+### Card 1 (rodapé esquerdo) — Qualidade da segmentação
+
+Três bullets:
+- **2298 / 2298** imagens processadas, zero erros
+- **1.5% fallback total** (35 imagens) — bem abaixo do 5-10% típico em
+  datasets dermatológicos
+- Distribuição dos fallbacks: **NEV 9%** (pintas uniformes, esperado
+  clinicamente), **MEL 3.8%** (apenas 2/52 — crítico, dentro do aceitável)
+
+### Card 2 (rodapé direito) — Output do pipeline
+
+Três bullets:
+- **2298 × `.npz`** contendo `{image 256×256×3, mask 256×256}`
+- **326 MB** cacheados em disco (execução ~20 min, reuso ~5 ms / imagem)
+- Helper público: `load_processed(img_id) → (image, mask)`
+
+### Mensagem-chave do slide
+
+> "Cada imagem sai do pipeline com uma máscara que isola a lesão real —
+> o próximo passo vai extrair features **dentro da máscara**, não de uma
+> mistura de lesão + pele + pelo + fundo."
+
+**Gráfico extra:** nenhum. O fluxograma + mini-histograma + 2 cards já
+preenchem o slide sem sobra.
+
+---
+
+## Resumo de tempos — atualizado
+
+| Slide | Tempo alvo |
+|---|---:|
+| 1. Problema e dataset | ~45s |
+| 2. Classes e desbalanceamento | ~60s |
+| 3. O que cada amostra contém | ~60s |
+| 4. Armadilhas | ~75s |
+| 5. Pipeline de pré-processamento | ~90s |
+| 6. Features finais + class weights | ~60s |
+| **7. Pré-processamento das imagens (PDI)** | **~90s** |
+| **Total partes 1 + 2 + 3** | **~8:00 min** |
+
+Sobram ~7:00 min para extração de features, modelagem, resultados e conclusões.

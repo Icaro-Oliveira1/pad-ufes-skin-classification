@@ -238,3 +238,75 @@ partimos pro pré-processamento das imagens..."]
 - [ ] **Slide 6:** fazer o gesto de "dói 16× mais" apontando o gráfico — é a mensagem visual mais forte do slide
 - [ ] **Slide 6:** deixar claro que os dados ficam **intactos** — isso diferencia class_weight de SMOTE/undersampling
 - [ ] Manter os dois slides dentro de ~2:30 no total — se passar, cortar no 5, não no 6 (o 6 é visual e rápido)
+
+---
+
+# Roteiro Falado — Parte 3: Pré-processamento das Imagens (PDI)
+
+> Tempo alvo: **~90 segundos**. **1 slide só.** A ideia é mostrar o
+> pipeline de 4 etapas, explicar brevemente o Otsu (sem entrar em
+> matemática) e reportar a qualidade da segmentação. O público precisa
+> sair sabendo: "o pipeline isola a lesão real e tem 1.5% de falha".
+
+---
+
+## Slide 7 — Pré-processamento das imagens (PDI)  *(~90s)*
+
+> "Agora o pré-processamento das imagens. O objetivo é transformar as
+> fotos de smartphone cruas — com pelo, iluminação irregular, resolução
+> entre 189 e 3000 pixels — numa forma padronizada, onde as features
+> possam ser extraídas da lesão real, e não de uma mistura de lesão,
+> pele, pelo e fundo.
+>
+> O pipeline tem quatro etapas. Primeiro, **hair removal** via DullRazor,
+> que detecta fios escuros com uma operação morfológica chamada blackhat
+> e reconstrói os pixels por inpainting. Segundo, **color constancy**
+> com Shades of Gray, que normaliza o balanço de branco entre smartphones
+> diferentes. Terceiro, **segmentação da lesão** com Otsu — eu já volto
+> nesse —, e por último, **crop quadrado da bounding box** com 10% de
+> padding e resize pra 256 por 256, preservando o aspect ratio pra não
+> distorcer a assimetria.
+>
+> [apontar pra caixa central do Otsu]
+>
+> Sobre o Otsu, rapidamente: é um algoritmo de 1979 que encontra o
+> threshold binário ótimo automaticamente. No canal L* do LAB, o
+> histograma de uma foto dermatológica é tipicamente **bimodal** — tem
+> um pico de pixels claros que é a pele, e um pico de pixels escuros
+> que é a lesão. O Otsu varre os 256 valores possíveis de threshold e
+> escolhe aquele que **maximiza a variância entre os dois grupos** —
+> ou seja, o que deixa os dois picos o mais separados possível. É um
+> algoritmo com zero parâmetros treinados, roda em 5 milissegundos por
+> imagem, e é totalmente interpretável. Quando ele falha — lesão
+> uniforme, iluminação estranha — temos um fallback que é simplesmente
+> um retângulo central cobrindo 60% da imagem.
+>
+> [apontar pros cards de resultado no rodapé]
+>
+> Nos resultados, processamos as **2298 imagens com zero erros**, e
+> tivemos só **1.5% de fallback total** — bem abaixo do 5 a 10% típico
+> em datasets dermatológicos. A classe com mais fallback foi o nevo,
+> com 9%, que faz sentido clinicamente porque pintas tendem a ser
+> uniformes e se misturam mais com a pele. O melanoma, que é a classe
+> crítica, teve só 2 fallbacks em 52 amostras — ou seja, **96% dos
+> melanomas foram segmentados com sucesso**.
+>
+> Cada imagem vira um arquivo `.npz` contendo a imagem processada mais
+> a máscara, e o próximo notebook — de extração de features — vai
+> consumir isso via uma função helper e extrair features apenas dos
+> pixels dentro da máscara."
+
+[transição para o próximo bloco: "Feito o pré-processamento das duas
+fontes, agora a gente extrai as features e junta tudo num dataset
+final pra modelagem..."]
+
+---
+
+## Checklist mental — Parte 3
+
+- [ ] **Não entrar em matemática do Otsu** — só a frase "maximiza a variância entre os dois grupos" e segue
+- [ ] **Falar devagar na parte do fallback** — é onde o público pode perder o fio ("eles têm um plano B quando Otsu falha")
+- [ ] **Enfatizar o 96% dos melanomas** — é a mensagem que o público deve levar pra casa: "a classe crítica foi bem segmentada"
+- [ ] **Não mostrar exemplos de máscara visual no slide** — se existir tempo, é melhor na parte de resultados finais; aqui fica no esquema do fluxograma
+- [ ] Se estiver indo longo, cortar a explicação do DullRazor (é a parte menos importante do pipeline) e só dizer "remove pelo"
+- [ ] **90 segundos no máximo** — se passar, o resto da apresentação aperta
