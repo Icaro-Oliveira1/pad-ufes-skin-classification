@@ -1,0 +1,55 @@
+{
+  "seed": 42,
+  "split_strategy": "StratifiedGroupKFold (outer n=5 \u2192 test; inner n=5 \u2192 val)",
+  "groups": "patient_id",
+  "stratify": "diagnostic",
+  "n_train": 1470,
+  "n_val": 368,
+  "n_test": 460,
+  "n_features": 24,
+  "class_mapping": {
+    "0": "ACK",
+    "1": "BCC",
+    "2": "MEL",
+    "3": "NEV",
+    "4": "SCC",
+    "5": "SEK"
+  },
+  "dropped_columns": {
+    "leak": [
+      "biopsed"
+    ],
+    "mnar_block": [
+      "smoke",
+      "drink",
+      "pesticide",
+      "gender",
+      "skin_cancer_history",
+      "cancer_history",
+      "has_piped_water",
+      "has_sewage_system",
+      "fitspatrick",
+      "diameter_1",
+      "diameter_2",
+      "background_father",
+      "background_mother"
+    ]
+  },
+  "numeric_features": [
+    "age"
+  ],
+  "categorical_features": [
+    "region"
+  ],
+  "passthrough_features": [
+    "itch",
+    "grew",
+    "hurt",
+    "changed",
+    "bleed",
+    "elevation",
+    "grew_unknown",
+    "changed_unknown",
+    "symptom_count"
+  ]
+}
