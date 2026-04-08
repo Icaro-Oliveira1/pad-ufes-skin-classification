@@ -137,54 +137,153 @@ Sobram ~11 min para o restante (pré-processamento, PDI, modelo, resultados, con
 # Planejamento dos Slides — Parte 2: Pré-processamento dos Metadados
 
 > **Contexto:** segunda parte da apresentação.
-> Esta seção ocupa **1 slide** e **~90 segundos**.
-> Objetivo: mostrar que as decisões de pré-processamento são **consequências diretas**
-> das armadilhas apresentadas no slide 4 da Parte 1 — não escolhas arbitrárias.
+> Esta seção ocupa **2 slides** e **~2:30 minutos** no total.
+> Objetivo: (1) mostrar que as decisões de pré-processamento são **consequências
+> diretas** das armadilhas apresentadas no slide 4 da Parte 1, e (2) deixar
+> explícito quais **features finais** vão alimentar o modelo.
 
 ---
 
-## Slide 5 — Pré-processamento dos metadados
+## Slide 5 — Pipeline completo de pré-processamento
 
-**Título:** Pré-processamento dos Metadados — decisões fundamentadas
+**Título:** Pré-processamento dos Metadados — pipeline e decisões
 
-**Layout:** fluxograma horizontal no topo + 2 cards de destaque embaixo.
+**Layout:** fluxograma vertical grande ocupando ~55% do slide (esquerda) + 2 cards de justificativa empilhados (direita).
 
-### Fluxograma (topo, horizontal)
+### Fluxograma (coluna esquerda — vertical, 8 passos)
 
 ```
-   raw             drop leak        drop MNAR         feat. eng.         split agrupado       pipeline sklearn
-   2298×26    →    −biopsed    →    −13 colunas   →   +symptom_count →   64/16/20 por      →   OHE region
-                                    (MNAR block)      +flags UNK         paciente              scale age
-                                                                                                (fit só no treino)
+  ┌─────────────────────────────┐
+  │  1. CSV bruto               │  2298 × 26 colunas
+  │     metadata.csv            │  13 cols com 35% missing em bloco
+  └──────────────┬──────────────┘
+                 │
+  ┌──────────────▼──────────────┐
+  │  2. Verificação de qualidade│  ✓ 0 linhas duplicadas
+  │     (duplicatas, img_id)    │  ✓ img_id único (chave de merge p/ PDI)
+  └──────────────┬──────────────┘  ✓ 512 lesões multi-foto → split por paciente
+                 │
+  ┌──────────────▼──────────────┐
+  │  3. Drop de leak            │  − biopsed (causal reverso)
+  │     + bloco MNAR            │  − 13 colunas outcome-dependent
+  └──────────────┬──────────────┘
+                 │
+  ┌──────────────▼──────────────┐
+  │  4. UNK handling            │  grew / changed: 17% UNK
+  │     + feature engineering   │  → flags grew_unknown, changed_unknown
+  │                             │  + symptom_count (soma ABCDE)
+  └──────────────┬──────────────┘
+                 │
+  ┌──────────────▼──────────────┐
+  │  5. Análise de outliers     │  53 outliers em age (94% NEV jovem)
+  │     (documentação)          │  → preservar: sinal clínico, não ruído
+  └──────────────┬──────────────┘
+                 │
+  ┌──────────────▼──────────────┐
+  │  6. Split por paciente      │  StratifiedGroupKFold 64/16/20
+  │     + drift check           │  zero overlap · Δage = 0 · Δregion ≤ 5.7pp
+  └──────────────┬──────────────┘
+                 │
+  ┌──────────────▼──────────────┐
+  │  7. Encoding + scaling      │  OneHotEncoder(region, min_freq=10)
+  │     via ColumnTransformer   │  StandardScaler(age)
+  │     (fit SÓ no treino)      │  passthrough(sintomas + flags)
+  │                             │  LabelEncoder(diagnostic) — target
+  └──────────────┬──────────────┘
+                 │
+  ┌──────────────▼──────────────┐
+  │  8. Persistência            │  train/val/test.parquet +
+  │                             │  pipeline.joblib + class_weights.joblib
+  └─────────────────────────────┘
 ```
 
-**Resultado final:** `train / val / test` em Parquet + `pipeline.joblib` reutilizável.
+### Destaque sobre encoding (caixa discreta abaixo do fluxograma)
 
-### Card 1 — Por que dropar as 13 colunas MNAR (a decisão mais importante)
+**Duas estratégias de encoding, cada uma para um propósito:**
 
-**Título:** "Imputar seria leak mascarado"
+- **`OneHotEncoder` em `region`** — 14 categorias nominais viram 14 colunas binárias, evita ordem espúria. Parâmetro `min_frequency=10` agrupa regiões raras (LIP, FOOT, SCALP) em uma única categoria `infrequent_sklearn` para evitar overfit. `handle_unknown='ignore'` protege contra categoria inédita em val/test.
+- **`LabelEncoder` em `diagnostic`** — a variável alvo vira inteiros `0–5` (ACK=0, BCC=1, MEL=2, NEV=3, SCC=4, SEK=5). É a API esperada pelos classificadores do sklearn. Não introduz ordem porque o modelo trata cada valor como rótulo independente.
 
-Três pontos (curtos, cada um uma linha):
+### Card 1 (direita, topo) — Por que dropar as 13 colunas MNAR
 
-- **Ma & Zhang (NeurIPS 2021):** MNAR não é identificável — mesmo com infinitas amostras a imputação fica enviesada
+**Título curto:** "Imputar seria leak mascarado"
+
+Três pontos (cada um uma linha):
+- **Ma & Zhang (NeurIPS 2021):** MNAR não é identificável — mesmo com infinitas amostras, a imputação fica enviesada
 - **Sisk et al. (Diagn Progn Res 2023):** missing indicators em outcome-dependent missingness são *harmful*
-- **Consequência prática:** qualquer imputação (mediana, KNN, MICE, missForest) criaria uma assinatura que RF/XGBoost detectariam como proxy do diagnóstico
+- **Consequência:** qualquer imputação (mediana, KNN, MICE, missForest) criaria uma assinatura que RF/XGBoost detectariam como proxy do diagnóstico
 
-**Destaque visual:** caixa discreta embaixo com:
-> *O sinal biológico real das colunas úteis (fotótipo, diâmetros) será recuperado via PDI da imagem no próximo notebook.*
+**Caixa discreta abaixo do card:**
+> *Sinal biológico real (fotótipo, diâmetros) será recuperado via PDI da imagem no próximo notebook.*
 
-### Card 2 — Split por paciente + pipeline sklearn
+### Card 2 (direita, base) — Decisões-chave do pipeline
 
-Dois mini-bullets:
-
-- **`StratifiedGroupKFold` com `groups=patient_id`** → zero overlap entre splits, 33/9/10 melanomas em train/val/test
-- **`ColumnTransformer` ajustado só no treino** → OHE(`region`, min_frequency=10) + StandardScaler(`age`) + passthrough dos sintomas → **24 features finais**, salvo em `pipeline.joblib`
+Três bullets curtos:
+- **Zero imputação** — após os drops o dataset fica 100% completo, nada a imputar
+- **Split por `patient_id`** — garante que fotos quase idênticas da mesma lesão não vazem entre splits (512 lesões têm ≥2 fotos)
+- **`fit_transform` só no treino** — `ColumnTransformer` do sklearn impede leak estrutural por construção
 
 ### Mensagem-chave do slide
 
-> "Todo o notebook é basicamente responder 'como não trapacear?' — seja no split, no biopsed, ou nas 13 colunas MNAR. Zero imputação, zero leak."
+> "Todo o pipeline é basicamente responder 'como não trapacear?' — no split, no `biopsed`, nas 13 colunas MNAR, e no `fit` do scaler. Zero imputação, zero leak."
 
-**Gráfico:** nenhum novo. Só o fluxograma no topo e os dois cards.
+**Gráfico:** apenas o fluxograma à esquerda e os dois cards à direita. Nada mais.
+
+---
+
+## Slide 6 — Features finais e compensação do desbalanceamento
+
+**Título:** 24 Features Finais + Class Weights
+
+**Layout:** tabela de features (esquerda, ~55%) + gráfico de pesos de classe (direita, ~45%).
+
+### Bloco esquerdo — Tabela de features agrupadas
+
+**Nota introdutória no topo:**
+> *24 features finais após o pipeline. Nenhuma feature clínica sensível ao protocolo de coleta (MNAR) entra no modelo.*
+
+**Tabela (agrupada por tipo):**
+
+| Grupo | # | Features | Transformação |
+|---|---:|---|---|
+| **Numérica** | 1 | `age` | `StandardScaler` |
+| **Categórica (OHE)** | 14 | `region_*` (14 regiões, raras agrupadas via `min_frequency=10`) | `OneHotEncoder` |
+| **Sintomas binários** | 6 | `itch, grew, hurt, changed, bleed, elevation` | passthrough |
+| **Flags de unknown** | 2 | `grew_unknown, changed_unknown` | passthrough |
+| **Derivada** | 1 | `symptom_count` (soma dos 6 sintomas = ABCDE-like) | passthrough |
+| **Total** | **24** | | |
+
+**Caixa destacada abaixo da tabela — "o que NÃO entra":**
+> ❌ `biopsed` (leak) · ❌ `fitspatrick`, `diameter_1/2` (MNAR — serão recuperados via PDI) · ❌ `smoke`, `drink`, `gender`, histórico familiar, socioeconômicos, ancestralidade (MNAR, sem contrapartida visual)
+
+**Linha sobre a target (abaixo da caixa anterior, estilo rodapé):**
+> 🎯 **Target:** `diagnostic` (6 classes) → `LabelEncoder` → `{ACK:0, BCC:1, MEL:2, NEV:3, SCC:4, SEK:5}`. Fora do `ColumnTransformer` por convenção do sklearn.
+
+### Bloco direito — Class weights (gráfico de barras)
+
+**Gráfico:** barras verticais, 6 classes em ordem `[ACK, BCC, MEL, NEV, SCC, SEK]`, altura = peso balanced. Cores: vermelho para malignos (BCC, MEL, SCC), verde para benignos (ACK, NEV, SEK). Linha horizontal tracejada em `y=1.0` ("peso neutro"). Valor em cima de cada barra.
+
+**Dados do gráfico (calculados a partir do `y_train`):**
+
+| Classe | n treino | peso |
+|---|---:|---:|
+| ACK | 467 | 0.525 |
+| BCC | 541 | 0.453 |
+| **MEL** | **33** | **7.424** |
+| NEV | 156 | 1.571 |
+| SCC | 123 | 1.992 |
+| SEK | 150 | 1.633 |
+
+**Texto de apoio à direita do gráfico (2 linhas):**
+- **Razão 16.4×** entre MEL (raro) e BCC (comum) — um erro em MEL "dói" 16× mais durante o treino
+- Fórmula: `w[c] = n_samples / (n_classes × count[c])` — sem tocar no dataset
+
+### Mensagem-chave do slide
+
+> "O dataset fica intacto — os 33 melanomas continuam 33. Mas com `class_weight='balanced'`, o modelo é **forçado** a prestar atenção neles desde o primeiro gradiente."
+
+**Artefatos persistidos (rodapé do slide, letra pequena):**
+`train/val/test.parquet` · `pipeline.joblib` · `label_encoder.joblib` · `class_weights.joblib` · `feature_names.json` · `split_info.json`
 
 ---
 
@@ -196,7 +295,8 @@ Dois mini-bullets:
 | 2. Classes e desbalanceamento | ~60s |
 | 3. O que cada amostra contém | ~60s |
 | 4. Armadilhas | ~75s |
-| **5. Pré-processamento metadados** | **~90s** |
-| **Total partes 1 + 2** | **~5:30 min** |
+| **5. Pipeline de pré-processamento** | **~90s** |
+| **6. Features finais + class weights** | **~60s** |
+| **Total partes 1 + 2** | **~6:30 min** |
 
-Sobram ~9:30 min para PDI, modelo, resultados e conclusões.
+Sobram ~8:30 min para PDI, modelo, resultados e conclusões.

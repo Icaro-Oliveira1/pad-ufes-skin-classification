@@ -124,59 +124,117 @@ imagens..."]
 
 # Roteiro Falado — Parte 2: Pré-processamento dos Metadados
 
-> Tempo alvo: **~90 segundos**. **1 slide só.** A ideia é mostrar que as
-> decisões são consequência direta do que foi apresentado no slide 4 da
-> Parte 1 — e justificar a mais polêmica (dropar 35% do dataset) com
-> literatura.
+> Tempo alvo: **~2:30 minutos** no total, em **2 slides**.
+> Slide 5 (~90s) mostra o pipeline completo e justifica a decisão mais polêmica
+> (dropar 35% do dataset) com literatura. Slide 6 (~60s) mostra as features
+> finais que entram no modelo e o tratamento do desbalanceamento.
 
 ---
 
-## Slide 5 — Pré-processamento dos metadados  *(~90s)*
+## Slide 5 — Pipeline completo de pré-processamento  *(~90s)*
 
 > "O pré-processamento dos metadados é basicamente a resposta pra uma
-> pergunta: **como não trapacear?** O fluxograma resume os passos.
+> pergunta: **como não trapacear?** O fluxograma à esquerda mostra os
+> oito passos do pipeline.
 >
-> Primeiro, removemos o `biopsed` — já expliquei o porquê no slide
-> anterior. Em seguida, e essa é a decisão mais impactante do notebook,
-> **removemos o bloco de 13 colunas com missing**.
+> Começamos do CSV bruto e a primeira coisa que fazemos é uma
+> **verificação de qualidade**: confirmamos que não há linhas
+> duplicadas e que o `img_id` é único — isso é crítico porque o
+> `img_id` vai ser a chave de merge com o notebook de PDI mais pra
+> frente. Também descobrimos que **512 lesões têm mais de uma foto**
+> — essas não são duplicatas a remover, são fotos legítimas do mesmo
+> caso, e é justamente por isso que o split precisa ser agrupado por
+> paciente.
+>
+> Aí vêm os **drops**: removemos o `biopsed` pelo leak que eu já
+> mostrei, e o bloco de **13 colunas com missing**. Essa é a decisão
+> mais impactante do notebook.
 >
 > [pausa curta, apontar pro Card 1]
 >
-> Aqui vale uma justificativa técnica, porque a primeira reação natural
-> seria imputar esses valores. A literatura, no entanto, fecha essa
-> porta. **Ma e Zhang, no NeurIPS de 2021**, mostraram que dados MNAR
-> — que é o nosso caso — não são identificáveis: mesmo com infinitas
-> amostras, a imputação fica enviesada. **E Sisk e colegas, num paper
-> de 2023 sobre modelos clínicos de predição**, mostraram que adicionar
-> uma flag de missingness em dados outcome-dependent é literalmente
-> 'harmful' — é re-introduzir o leak com outro nome.
+> A primeira reação natural seria imputar esses valores, mas a
+> literatura fecha essa porta. **Ma e Zhang, no NeurIPS 2021**,
+> mostraram que dados MNAR — que é o nosso caso — não são
+> identificáveis: mesmo com infinitas amostras, a imputação fica
+> enviesada. E **Sisk e colegas, num paper de 2023**, mostraram que
+> adicionar uma flag de missingness em dados outcome-dependent é
+> literalmente *harmful* — re-introduz o leak com outro nome. Então
+> a única saída honesta é dropar. Preservamos as 2298 linhas,
+> incluindo os 52 melanomas, e o sinal biológico real — fotótipo e
+> diâmetro — vai ser recuperado via PDI da imagem no próximo notebook.
 >
-> Na prática, qualquer imputação — mediana, KNN, MICE, missForest —
-> criaria um valor característico que Random Forest e XGBoost
-> reconheceriam como proxy do diagnóstico. Então a única saída honesta
-> é dropar. **Preservamos as 2298 linhas, incluindo os 52 melanomas**,
-> e o sinal biológico real que a gente perde — fotótipo e diâmetro —
-> vai ser recuperado via PDI da imagem no próximo notebook.
+> Depois disso tratamos os sintomas: descobrimos que `grew` e
+> `changed` têm 17% de valor *unknown*, então criamos flags específicas
+> pra preservar os três estados. Criamos também o `symptom_count` pra
+> condensar os critérios ABCDE. Fazemos análise de outliers em `age`
+> — tem 53 outliers estatísticos, mas 94% deles são nevos em pacientes
+> jovens: não é ruído, é o sinal clínico da classe. **Preservamos.**
 >
-> Depois disso, tudo é padrão: criamos uma feature derivada
-> `symptom_count` pra condensar os critérios ABCDE, fazemos o
-> **split por paciente** com `StratifiedGroupKFold` — zero overlap
-> entre treino, validação e teste —, e empacotamos todo o resto num
-> `ColumnTransformer` ajustado **exclusivamente no treino**:
-> `OneHotEncoder` pra região, `StandardScaler` pra idade, e passthrough
-> nos sintomas. **Resultado: 24 features finais**, salvas em Parquet
-> e com o pipeline serializado em `joblib` pra reuso.
->
-> Zero imputação, zero leak."
+> Aí vem o **split por paciente** com `StratifiedGroupKFold`, zero
+> overlap verificado, e rodamos um drift check — a mediana de idade
+> é idêntica nos três splits. Por fim, tudo entra num
+> `ColumnTransformer` ajustado **exclusivamente no treino**, com
+> **duas estratégias de encoding**: `OneHotEncoder` na `region`,
+> porque são 14 categorias nominais sem ordem natural — e o sklearn
+> ainda agrupa as regiões raras automaticamente via `min_frequency`;
+> e `LabelEncoder` na variável alvo, que é o padrão pra classificação
+> multiclasse do sklearn. `age` passa pelo `StandardScaler`, os
+> sintomas vão direto. Todo o pipeline é serializado em disco como
+> `joblib` — o próximo notebook só precisa carregar. Zero imputação,
+> zero leak."
 
-[transição para o próximo bloco: "Com os metadados resolvidos, o
-próximo passo foi processar as imagens..."]
+[transição curta: "E as features que isso gera estão no próximo
+slide..."]
+
+---
+
+## Slide 6 — Features finais e compensação do desbalanceamento  *(~60s)*
+
+> "Depois de tudo isso, o que alimenta o modelo são **24 features**,
+> divididas em cinco grupos.
+>
+> [apontar pra tabela]
+>
+> Uma única feature numérica — a `age`, escalada. **Catorze colunas
+> one-hot** da região do corpo — o sklearn agrupa regiões raras como
+> `LIP` e `SCALP` automaticamente via `min_frequency=10`. **Seis
+> sintomas booleanos** da lesão. **Duas flags de unknown** pra
+> preservar a informação "paciente não sabe". E o `symptom_count`
+> derivado. Nada mais.
+>
+> Repare no que **não entra**: `biopsed` pelo leak, `fitspatrick` e
+> diâmetros pelo bloco MNAR, e toda a anamnese do paciente — tabagismo,
+> álcool, histórico, condições socioeconômicas, ancestralidade —
+> porque são exatamente as colunas outcome-dependent que a gente
+> removeu.
+>
+> [apontar pro gráfico de class weights]
+>
+> E como o dataset é muito desbalanceado — BCC tem 541 amostras no
+> treino, melanoma tem só 33 — calculamos os **class weights
+> balanceados** aqui mesmo. A fórmula é simples: cada classe recebe
+> um peso inversamente proporcional à frequência. O melanoma fica
+> com peso **7.4**, contra **0.45** do BCC — ou seja, **um erro em
+> melanoma 'dói' 16 vezes mais** durante o treino. E o detalhe
+> importante: o **dataset fica intacto**. Os 33 melanomas continuam
+> 33. A compensação acontece na função de perda, não nos dados. Isso
+> evita o risco de overfit que métodos como SMOTE teriam com tão
+> poucas amostras.
+>
+> O pipeline inteiro sai em disco como artefato — parquets, scaler,
+> encoder, pesos de classe — e o próximo notebook, que é o de PDI,
+> só precisa carregar."
+
+[transição para o próximo bloco: "Com os metadados resolvidos,
+partimos pro pré-processamento das imagens..."]
 
 ---
 
 ## Checklist mental — Parte 2
 
-- [ ] **Falar devagar no Card 1** — a justificativa da literatura é o que defende a decisão
-- [ ] Não entrar em detalhes técnicos do `StratifiedGroupKFold` — só mencionar "zero overlap"
-- [ ] **Não passar de 90 segundos** — é o slide mais "árido" da apresentação, público perde atenção rápido
-- [ ] Se sentir que está indo longo, cortar a parte dos autores (Ma & Zhang / Sisk) e só dizer "a literatura mostra que imputar seria leak mascarado"
+- [ ] **Slide 5:** falar devagar no Card 1 (literatura) — é a defesa da decisão mais impopular
+- [ ] **Slide 5:** não detalhar `StratifiedGroupKFold` — só mencionar "zero overlap" e seguir
+- [ ] **Slide 5:** se o ritmo apertar, cortar a parte dos autores (Ma & Zhang / Sisk) e só dizer "a literatura mostra que imputar seria leak mascarado"
+- [ ] **Slide 6:** fazer o gesto de "dói 16× mais" apontando o gráfico — é a mensagem visual mais forte do slide
+- [ ] **Slide 6:** deixar claro que os dados ficam **intactos** — isso diferencia class_weight de SMOTE/undersampling
+- [ ] Manter os dois slides dentro de ~2:30 no total — se passar, cortar no 5, não no 6 (o 6 é visual e rápido)
