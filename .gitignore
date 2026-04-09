@@ -2,6 +2,10 @@
 data/raw/images/*
 !data/raw/images/.gitkeep
 
+# Imagens processadas — geradas localmente rodando nb03
+data/processed/images/*
+!data/processed/images/.gitkeep
+
 # Ambiente virtual
 .venv/
 venv/
