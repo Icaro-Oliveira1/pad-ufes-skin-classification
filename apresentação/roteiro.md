@@ -310,3 +310,77 @@ final pra modelagem..."]
 - [ ] **Não mostrar exemplos de máscara visual no slide** — se existir tempo, é melhor na parte de resultados finais; aqui fica no esquema do fluxograma
 - [ ] Se estiver indo longo, cortar a explicação do DullRazor (é a parte menos importante do pipeline) e só dizer "remove pelo"
 - [ ] **90 segundos no máximo** — se passar, o resto da apresentação aperta
+
+---
+
+# Roteiro Falado — Parte 4: Extração de Features + Merge
+
+> Tempo alvo: **~90 segundos**. **1 slide só.** A ideia é mostrar as 5
+> famílias de features PDI de forma rápida, enfatizar que foram **escolhidas
+> pelo critério ABCDE clínico** (não arbitrariamente), e reportar o achado
+> empírico mais forte do MI ranking — que `lab_a_std` ficou em 2º lugar,
+> confirmando a decisão de priorizar LAB.
+
+---
+
+## Slide 8 — Extração de features + merge  *(~90s)*
+
+> "Com as imagens processadas, o próximo passo é transformar cada uma
+> num vetor numérico de features. Extraímos **38 features handcrafted
+> por imagem, todas dentro da máscara da lesão** — porque é exatamente
+> isso que a segmentação do Otsu permitiu. Se tivéssemos rodado sobre
+> a imagem inteira, estaríamos medindo pele normal junto com lesão.
+>
+> [apontar pra tabela à esquerda]
+>
+> As 38 features se dividem em **cinco grupos**, cada um mapeado a um
+> critério do ABCDE clínico. **Doze features de cor** em LAB e HSV,
+> medindo a variegação — que é o C do ABCDE. **Seis features GLCM**
+> de Haralick, medindo textura via co-ocorrência. **Dez features LBP**,
+> que capturam textura de forma robusta a iluminação. **Três features
+> de borda**, que correspondem ao B do ABCDE — densidade de bordas
+> interna, irregularidade do contorno comparada a um círculo, e quão
+> difusa é a transição lesão/pele. E **sete features de forma**
+> calculadas direto da máscara — compactness, solidity, eccentricity,
+> e principalmente a **assimetria após rotação pro eixo principal** —
+> que é o A do ABCDE. **Essas sete de forma eram impossíveis sem a
+> segmentação** do notebook anterior — são o maior ganho técnico do
+> refactor.
+>
+> Originalmente eu tinha proposto 81 features, mas cortei pra 38
+> removendo redundâncias: RGB é redundante com LAB, LBP multi-raio com
+> alta correlação interna, Gabor redundante com GLCM+LBP. Em dataset
+> pequeno, menos features boas é melhor que mais features médias.
+>
+> [apontar pro bloco direito — Top 5 por MI]
+>
+> A validação empírica veio pelo **ranking de Mutual Information**.
+> `age` ficou em primeiro, o que é esperado. Mas em **segundo lugar
+> ficou `lab_a_std` — com MI de 0.20, acima de todas as features de
+> sintomas clínicos**. Isso é exatamente a variação no eixo vermelho-verde
+> do LAB, que é o critério C de variegação de cor. **Confirmou
+> empiricamente a decisão de priorizar LAB em vez de RGB.** Além
+> disso, quatro das sete features de forma também ficaram no top 20,
+> todas novas em relação ao notebook original.
+>
+> [apontar pro rodapé]
+>
+> O merge final é simples: 24 features tabulares do nb02 + 38 PDI
+> deste notebook = **62 features finais**, por `img_id` com validação
+> one_to_one. Zero NaN, zero leak residual — o máximo MI de qualquer
+> feature sozinha foi 0.23, bem abaixo do threshold de 0.7 que
+> indicaria vazamento."
+
+[transição para o próximo bloco: "Com o dataset final pronto, passamos
+para a modelagem..."]
+
+---
+
+## Checklist mental — Parte 4
+
+- [ ] **Enfatizar o "38 features, todas dentro da máscara"** — o público precisa conectar que extrair dentro da máscara é o que diferencia do notebook original
+- [ ] **Falar devagar na parte do mapeamento ABCDE** — é o que dá legitimidade clínica às escolhas
+- [ ] **`lab_a_std` em 2º lugar é a punchline do slide** — fazer pausa breve após dizer o MI de 0.20, deixar assentar
+- [ ] **Não listar cada uma das 38 features uma por uma** — o público não precisa decorar, só precisa ver a estrutura dos 5 grupos
+- [ ] **Se apertar o tempo:** cortar a parte sobre o corte de 81→38 (é explicação de processo, não de resultado)
+- [ ] **90 segundos no máximo** — densidade de informação é alta, falar pausado mas sem enrolar

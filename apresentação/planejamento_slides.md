@@ -402,3 +402,102 @@ preenchem o slide sem sobra.
 | **Total partes 1 + 2 + 3** | **~8:00 min** |
 
 Sobram ~7:00 min para extração de features, modelagem, resultados e conclusões.
+
+---
+
+# Planejamento dos Slides — Parte 4: Extração de Features + Merge
+
+> **Contexto:** quarta parte da apresentação.
+> Esta seção ocupa **1 slide** e **~90 segundos**.
+> Objetivo: mostrar as **38 features PDI extraídas dentro da máscara**,
+> o merge com as 24 features tabulares (**= 62 features finais**), e
+> os achados mais fortes do MI ranking que validam empiricamente a escolha.
+
+---
+
+## Slide 8 — Extração de Features + Merge Final
+
+**Título:** 38 Features PDI × 24 Tabulares → 62 Features Finais
+
+**Layout:** tabela das 5 famílias de features PDI à esquerda (~60%) + achados
+do MI ranking à direita (~40%). Pequeno fluxograma de merge no rodapé.
+
+### Bloco esquerdo — Tabela das 38 features PDI (agrupadas)
+
+**Nota introdutória no topo:**
+> *Todas extraídas **apenas dentro da máscara** da lesão. Cada grupo responde
+> a uma pergunta clínica diferente do critério ABCDE.*
+
+**Tabela:**
+
+| Grupo | # | Features | O que captura (ABCDE) |
+|---|---:|---|---|
+| **Cor** | 12 | `lab_{L,a,b}_{mean,std}` + `hsv_{H,S,V}_{mean,std}` | **C — Color variation**: mean = cor central, std = variegação |
+| **GLCM** | 6 | `glcm_{contrast, dissimilarity, homogeneity, energy, correlation, ASM}` | Textura via co-ocorrência (Haralick 1973): superfície lisa vs rugosa |
+| **LBP** | 10 | `lbp_bin_{0..9}` — Local Binary Pattern R=1 uniforme | Textura robusta a iluminação: padrões locais de borda/canto/mancha |
+| **Bordas** | 3 | `edge_density`, `border_irregularity`, `border_gradient_std` | **B — Border**: detalhe interno, irregularidade, difusão da fronteira |
+| **Forma** | 7 | `shape_{compactness, solidity, eccentricity, asymmetry_h, asymmetry_v, convexity_defects_n, area_ratio}` | **A/B/D — Assimetria, borda, diâmetro** (só possíveis porque temos segmentação) |
+| **Total** | **38** | | |
+
+**Caixa de contexto abaixo da tabela:**
+> *Escolha fundamentada: corte de 81→38 para razão saudável de ~24 samples/feature.
+> Removidos: RGB (redundante com LAB), skew (estimativa ruidosa), LBP R=2 (correlação
+> com R=1), Gabor inteiro (redundante com GLCM+LBP), Sobel mean/std (redundante com edge_density).*
+
+### Bloco direito — Top 5 por Mutual Information (validação empírica)
+
+**Título curto:** "Ranking MI valida as escolhas"
+
+**Tabela compacta (top 5 com origem):**
+
+| # | Feature | MI | Origem |
+|--:|---|---:|:-:|
+| 1 | `age` | 0.234 | TAB |
+| 2 | **`lab_a_std`** | **0.202** | **PDI** |
+| 3 | `symptom_count` | 0.187 | TAB |
+| 4 | `bleed` | 0.131 | TAB |
+| 5 | `elevation` | 0.128 | TAB |
+
+**Texto de apoio (3 bullets curtos):**
+
+- **`lab_a_std` em 2º lugar confirma a decisão de usar LAB** — variação no eixo vermelho-verde (critério C do ABCDE) é o sinal mais forte entre as features PDI
+- **4 das 7 features de forma no top 20** (compactness, solidity, convexity_defects, border_irregularity) — 100% impossíveis sem segmentação, todas novas vs notebook original
+- **Max MI = 0.234** < threshold 0.7 → zero leak residual detectado
+
+### Rodapé — Fluxograma compacto de merge
+
+```
+   24 tabulares           +      38 PDI              →    62 features finais
+   (nb02 — metadados)            (nb04 — imagem)           (train/val/test.parquet)
+                                                           1470 / 368 / 460 linhas
+                                                           zero NaN, zero leak
+```
+
+**Merge:** `pandas.merge(..., on='img_id', validate='one_to_one')` — falha
+imediatamente se houver duplicação ou perda. Zero tolerância.
+
+### Mensagem-chave do slide
+
+> "O ranking de MI mostra que as duas fontes **contribuem com sinal complementar**:
+> top 20 tem 10 features tabulares e 10 PDI. Mesclar era a escolha certa."
+
+**Gráfico:** nenhum novo. Só a tabela à esquerda, tabela/bullets à direita, e
+fluxograma de merge no rodapé.
+
+---
+
+## Resumo de tempos — atualizado
+
+| Slide | Tempo alvo |
+|---|---:|
+| 1. Problema e dataset | ~45s |
+| 2. Classes e desbalanceamento | ~60s |
+| 3. O que cada amostra contém | ~60s |
+| 4. Armadilhas | ~75s |
+| 5. Pipeline de pré-processamento | ~90s |
+| 6. Features finais + class weights | ~60s |
+| 7. Pré-processamento das imagens (PDI) | ~90s |
+| **8. Extração de features + merge** | **~90s** |
+| **Total partes 1 + 2 + 3 + 4** | **~9:30 min** |
+
+Sobram ~5:30 min para modelagem, resultados e conclusões.
