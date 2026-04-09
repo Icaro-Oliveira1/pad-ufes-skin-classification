@@ -1,0 +1,2663 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAD-UFES-20 · Classificação de Lesões de Pele</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Figtree:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     ============================================================ */
+  :root {
+    --bg-stage: #EEF2F8;
+    --bg-stage-grid: #E4EAF3;
+    --slide: #FFFFFF;
+    --slide-soft: #F7F9FD;
+    --slide-wash: #EEF3FB;
+    --ink: #0A1628;
+    --ink-2: #1E3050;
+    --ink-3: #485B7A;
+    --ink-4: #7A8CA8;
+    --line: #D9E1EF;
+    --line-soft: #EBF0F9;
+    --accent: #1652CC;
+    --accent-deep: #0A2E7A;
+    --accent-bright: #2E6FFF;
+    --accent-wash: #E7EFFF;
+    --accent-wash-2: #F2F6FF;
+    --danger: #DC2626;
+    --danger-wash: #FEF2F2;
+    --warning: #D97706;
+    --warning-wash: #FEF7EC;
+    --success: #059669;
+    --success-wash: #ECFDF5;
+    --gold: #B58B12;
+
+    /* classes */
+    --cls-bcc: #DC2F3A;
+    --cls-ack: #D9A00C;
+    --cls-nev: #1FA47A;
+    --cls-sek: #17B0B9;
+    --cls-scc: #E66A1E;
+    --cls-mel: #7E0A18;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Figtree', -apple-system, system-ui, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse at top, #F5F8FD 0%, var(--bg-stage) 60%);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Subtle dot grid on stage */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: radial-gradient(var(--bg-stage-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ============================================================
+     DECK + SLIDE SCAFFOLDING
+     ============================================================ */
+  .deck {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    z-index: 1;
+  }
+
+  .slide {
+    position: absolute;
+    width: min(96vw, calc(96vh * 16 / 9));
+    height: min(96vh, calc(96vw * 9 / 16));
+    background: var(--slide);
+    border-radius: 14px;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.8) inset,
+      0 50px 90px -30px rgba(12, 32, 80, 0.18),
+      0 16px 40px -20px rgba(12, 32, 80, 0.12);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(12px) scale(0.995);
+    transition: opacity 0.45s cubic-bezier(0.22,0.61,0.36,1),
+                transform 0.45s cubic-bezier(0.22,0.61,0.36,1);
+    pointer-events: none;
+    font-size: clamp(12px, 1.75vmin, 22px);
+  }
+  .slide.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+    z-index: 2;
+  }
+
+  /* Accent rail on left edge */
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 0.45em;
+    height: 100%;
+    background: linear-gradient(180deg, var(--accent-deep) 0%, var(--accent) 45%, var(--accent-bright) 100%);
+  }
+
+  /* Slide inner frame */
+  .slide-inner {
+    position: absolute;
+    inset: 0;
+    padding: 2.8em 3.6em 1.8em 4.2em;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 1.6em;
+  }
+
+  /* ============================================================
+     HEADER / FOOTER
+     ============================================================ */
+  .slide-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line-soft);
+    padding-bottom: 1.2em;
+  }
+  .section-tag {
+    display: flex;
+    align-items: center;
+    gap: 0.8em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .section-tag .dot {
+    width: 0.5em;
+    height: 0.5em;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .section-tag .separator {
+    opacity: 0.4;
+  }
+  .slide-index {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 1.1em;
+    color: var(--ink-4);
+    font-feature-settings: "tnum";
+  }
+  .slide-index .current {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .slide-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.8em;
+    border-top: 1px solid var(--line-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+  .slide-footer .credit {
+    opacity: 0.9;
+  }
+
+  /* ============================================================
+     TITLE SYSTEM
+     ============================================================ */
+  h1.title {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 2.6em;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  h1.title em {
+    font-style: italic;
+    font-weight: 300;
+    color: var(--accent-deep);
+  }
+  .subtitle {
+    font-family: 'Figtree', sans-serif;
+    font-weight: 400;
+    font-size: 1.1em;
+    color: var(--ink-3);
+    line-height: 1.4;
+    margin-top: 0.4em;
+    max-width: 80%;
+  }
+  h2.section-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 1.6em;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+  }
+  h2.section-title em {
+    font-style: italic;
+    color: var(--accent-deep);
+  }
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.3em;
+    display: block;
+  }
+
+  /* ============================================================
+     UTILITY — rows, columns, cards
+     ============================================================ */
+  .row { display: flex; gap: 1.5em; }
+  .col { display: flex; flex-direction: column; gap: 1.2em; }
+  .grow { flex: 1; }
+
+  .card {
+    background: var(--slide-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 1.3em 1.5em;
+    position: relative;
+  }
+  .card-blue {
+    background: var(--accent-wash-2);
+    border-color: #CCD8F3;
+  }
+  .card-dark {
+    background: var(--ink);
+    color: #FFFFFF;
+    border: none;
+  }
+  .card-dark .eyebrow { color: #7AA6FF; }
+
+  .card-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.15em;
+    color: var(--ink);
+    margin-bottom: 0.55em;
+    line-height: 1.2;
+  }
+  .card-dark .card-title { color: #FFFFFF; }
+
+  .card-body {
+    font-size: 0.92em;
+    line-height: 1.55;
+    color: var(--ink-3);
+  }
+  .card-dark .card-body { color: #B8C4D9; }
+
+  /* ============================================================
+     TABLES
+     ============================================================ */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.88em;
+    font-variant-numeric: tabular-nums;
+  }
+  table th {
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    padding: 0.55em 0.8em;
+    border-bottom: 1.5px solid var(--ink);
+  }
+  table td {
+    padding: 0.55em 0.8em;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2);
+  }
+  table tr:last-child td { border-bottom: none; }
+  table td.num { text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.92em; }
+  .ta-c { text-align: center; }
+  .ta-r { text-align: right; }
+
+  code, .mono {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    background: var(--slide-wash);
+    padding: 0.08em 0.4em;
+    border-radius: 3px;
+    color: var(--accent-deep);
+    font-weight: 500;
+  }
+
+  /* ============================================================
+     SLIDE 1 — COVER
+     ============================================================ */
+  .slide-1 .slide-inner {
+    padding: 2.8em 4.2em;
+  }
+  .slide-1 .cover-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    gap: 4em;
+    align-items: center;
+    height: 100%;
+  }
+  .cover-left h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 350;
+    font-size: 5.5em;
+    line-height: 0.92;
+    letter-spacing: -0.035em;
+    color: var(--ink);
+  }
+  .cover-left h1 .brand {
+    font-weight: 400;
+    font-feature-settings: "tnum";
+  }
+  .cover-left h1 .dash {
+    display: block;
+    width: 1.3em;
+    height: 5px;
+    background: var(--accent);
+    margin: 0.45em 0 0.45em 0;
+    border-radius: 2px;
+  }
+  .cover-left h1 .sub {
+    font-style: italic;
+    font-weight: 300;
+    font-size: 0.52em;
+    color: var(--accent-deep);
+    line-height: 1.1;
+    display: block;
+  }
+  .cover-left .lede {
+    margin-top: 2em;
+    font-size: 1.12em;
+    line-height: 1.55;
+    color: var(--ink-3);
+    max-width: 32em;
+  }
+  .cover-left .lede strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .cover-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5em;
+    padding: 2em;
+    background: var(--slide-soft);
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    position: relative;
+  }
+  .cover-stats::before {
+    content: 'DATASET';
+    position: absolute;
+    top: -0.7em; left: 1.5em;
+    background: var(--slide);
+    padding: 0 0.6em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65em;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: var(--ink-4);
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15em;
+  }
+  .stat .value {
+    font-family: 'Fraunces', serif;
+    font-weight: 350;
+    font-size: 2.9em;
+    line-height: 1;
+    color: var(--ink);
+    font-feature-settings: "tnum";
+    letter-spacing: -0.02em;
+  }
+  .stat .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin-top: 0.3em;
+  }
+
+  .cover-task {
+    display: flex;
+    align-items: baseline;
+    gap: 1em;
+    margin-top: 2.5em;
+    padding: 1.2em 0 0 0;
+    border-top: 1px solid var(--line);
+  }
+  .cover-task .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+  .cover-task .val {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 1.15em;
+    color: var(--ink);
+  }
+
+  /* ============================================================
+     SLIDE 2 — CLASSES
+     ============================================================ */
+  .slide-2 .content {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 2.5em;
+    align-items: stretch;
+  }
+
+  .bar-chart {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    align-items: end;
+    gap: 1.2em;
+    padding: 1em 0 2em 0;
+    height: 100%;
+    position: relative;
+  }
+  .bar-chart::before,
+  .bar-chart::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: var(--line-soft);
+    z-index: 0;
+  }
+  .bar-chart::before { top: 30%; }
+  .bar-chart::after  { top: 60%; }
+
+  .bar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5em;
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .bar-item .bar {
+    width: 100%;
+    border-radius: 5px 5px 0 0;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 0.6em;
+    background: var(--accent);
+    box-shadow: 0 10px 24px -10px rgba(22, 82, 204, 0.35);
+    transition: all 0.3s ease;
+  }
+  .bar-item .bar .bar-value {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1em;
+    color: #FFFFFF;
+  }
+  .bar-item .bar .bar-pct {
+    position: absolute;
+    top: -1.8em;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    color: var(--ink-3);
+    white-space: nowrap;
+  }
+  .bar-item .bar-label {
+    font-family: 'Fraunces', serif;
+    font-size: 1.05em;
+    font-weight: 500;
+    color: var(--ink);
+    margin-top: 0.3em;
+  }
+  .bar-item .bar-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+  }
+
+  .bar--bcc { background: linear-gradient(180deg, var(--cls-bcc), #A41F28); }
+  .bar--ack { background: linear-gradient(180deg, var(--cls-ack), #9F720A); }
+  .bar--nev { background: linear-gradient(180deg, var(--cls-nev), #0E6E52); }
+  .bar--sek { background: linear-gradient(180deg, var(--cls-sek), #0E7C83); }
+  .bar--scc { background: linear-gradient(180deg, var(--cls-scc), #A24910); }
+  .bar--mel {
+    background: linear-gradient(180deg, var(--cls-mel), #4D0610);
+    position: relative;
+  }
+  .bar--mel::after {
+    content: '';
+    position: absolute;
+    top: -0.5em; left: -0.5em; right: -0.5em; bottom: -0.5em;
+    border: 2.5px dashed var(--cls-mel);
+    border-radius: 7px 7px 0 0;
+    pointer-events: none;
+    opacity: 0.55;
+  }
+
+  .mel-callout {
+    position: absolute;
+    bottom: 32%;
+    right: 0.5%;
+    padding: 0.75em 1em 0.85em 1em;
+    background: var(--cls-mel);
+    color: #FFFFFF;
+    border-radius: 6px;
+    font-family: 'Figtree', sans-serif;
+    font-size: 0.8em;
+    font-weight: 500;
+    line-height: 1.35;
+    max-width: 11em;
+    text-align: right;
+    box-shadow: 0 14px 28px -10px rgba(126, 10, 24, 0.5);
+    z-index: 5;
+  }
+  .mel-callout::after {
+    content: '';
+    position: absolute;
+    left: 82%;
+    bottom: -0.55em;
+    border: 0.55em solid transparent;
+    border-top-color: var(--cls-mel);
+    border-bottom: none;
+  }
+  .mel-callout strong {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 500;
+    display: block;
+    font-size: 1.1em;
+    margin-top: 0.2em;
+    letter-spacing: -0.01em;
+  }
+
+  .classes-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1em;
+  }
+
+  .imbalance-card {
+    background: linear-gradient(135deg, var(--accent-deep), var(--accent));
+    color: #FFFFFF;
+    padding: 1.5em 1.6em;
+    border-radius: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .imbalance-card::after {
+    content: '';
+    position: absolute;
+    top: -30%; right: -20%;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  }
+  .imbalance-card .eyebrow { color: #9CBEFF; }
+  .imbalance-card .bignum {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    font-size: 3.6em;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #FFFFFF;
+    font-feature-settings: "tnum";
+    margin: 0.15em 0;
+  }
+  .imbalance-card .bignum .op { font-style: italic; font-weight: 300; color: #9CBEFF; }
+  .imbalance-card .caption {
+    font-size: 0.88em;
+    line-height: 1.4;
+    color: #CED9F2;
+    max-width: 22em;
+  }
+  .imbalance-card .caption strong { color: #FFFFFF; font-weight: 600; }
+
+  /* ============================================================
+     SLIDE 3 — SAMPLE CONTENTS
+     ============================================================ */
+  .slide-3 .content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.2em;
+    align-content: start;
+  }
+  .source-block {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.6em 1.8em;
+    background: var(--slide-soft);
+    height: 100%;
+  }
+  .source-block h3 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.5em;
+    color: var(--ink);
+    margin-bottom: 0.6em;
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+  }
+  .source-block h3 .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55em;
+    font-weight: 500;
+    background: var(--accent);
+    color: #FFFFFF;
+    padding: 0.3em 0.55em;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+  .source-block .divider {
+    height: 1px;
+    background: var(--line);
+    margin: 0.8em 0 1em 0;
+  }
+  .source-block .stats-row {
+    display: flex;
+    gap: 1.8em;
+    margin-bottom: 1em;
+  }
+  .source-block .stats-row .stat-inline .value {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.6em;
+    color: var(--accent-deep);
+    line-height: 1;
+    font-feature-settings: "tnum";
+  }
+  .source-block .stats-row .stat-inline .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin-top: 0.3em;
+    display: block;
+  }
+
+  .bullet-list {
+    list-style: none;
+    font-size: 0.92em;
+    line-height: 1.55;
+    color: var(--ink-2);
+  }
+  .bullet-list li {
+    padding: 0.35em 0 0.35em 1.2em;
+    position: relative;
+  }
+  .bullet-list li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0.85em;
+    width: 0.4em;
+    height: 0.4em;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+  .bullet-list li strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .meta-categories {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85em;
+  }
+  .meta-cat {
+    background: var(--slide);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.75em 0.9em;
+  }
+  .meta-cat .cat-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 0.92em;
+    color: var(--accent-deep);
+  }
+  .meta-cat .cat-items {
+    font-family: 'Figtree', sans-serif;
+    font-size: 0.78em;
+    color: var(--ink-3);
+    line-height: 1.35;
+    margin-top: 0.25em;
+  }
+
+  .keymsg {
+    background: var(--ink);
+    color: #FFFFFF;
+    padding: 1.2em 1.6em;
+    border-radius: 8px;
+    font-family: 'Fraunces', serif;
+    font-size: 1.05em;
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.45;
+    position: relative;
+    padding-left: 3em;
+  }
+  .keymsg::before {
+    content: '\201C';
+    position: absolute;
+    left: 0.5em;
+    top: 0.15em;
+    font-family: 'Fraunces', serif;
+    font-size: 3em;
+    color: var(--accent-bright);
+    line-height: 1;
+  }
+  .keymsg strong { font-style: normal; font-weight: 600; color: #A7C3FF; }
+
+  /* ============================================================
+     SLIDE 4 — THREE TRAPS
+     ============================================================ */
+  .slide-4 .content {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5em;
+    align-items: stretch;
+  }
+  .trap-card {
+    background: var(--slide);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.5em 1.4em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8em;
+    position: relative;
+    overflow: hidden;
+  }
+  .trap-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 4px;
+    background: var(--danger);
+  }
+  .trap-card .trap-num {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-size: 2.4em;
+    color: var(--danger);
+    font-feature-settings: "tnum";
+    line-height: 1;
+  }
+  .trap-card .trap-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.18em;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .trap-card .trap-body {
+    font-size: 0.86em;
+    line-height: 1.5;
+    color: var(--ink-3);
+    flex-grow: 1;
+  }
+  .trap-card .trap-body strong { color: var(--ink); font-weight: 600; }
+
+  .trap-decision {
+    background: var(--success-wash);
+    border-left: 3px solid var(--success);
+    padding: 0.6em 0.85em;
+    border-radius: 4px;
+    font-size: 0.82em;
+    line-height: 1.35;
+    color: var(--ink);
+  }
+  .trap-decision .d-label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    font-weight: 600;
+    color: var(--success);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.15em;
+  }
+
+  .mini-crosstab {
+    font-size: 0.78em;
+    background: var(--slide-soft);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 0.6em 0.8em;
+  }
+  .mini-crosstab table { font-size: 0.92em; }
+  .mini-crosstab th { font-size: 0.72em; padding: 0.35em 0.4em; border: none; }
+  .mini-crosstab td { padding: 0.3em 0.4em; border: none; }
+  .mini-crosstab .malig { color: var(--danger); font-weight: 600; }
+  .mini-crosstab .benig { color: var(--ink-3); }
+
+  /* ============================================================
+     SLIDE 5 — PIPELINE
+     ============================================================ */
+  .slide-5 .content {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 2em;
+    align-items: stretch;
+  }
+  .flowchart {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+    padding: 0.5em 0;
+  }
+  .flow-step {
+    display: flex;
+    align-items: stretch;
+    gap: 0.9em;
+    position: relative;
+  }
+  .flow-step .num-badge {
+    flex-shrink: 0;
+    width: 2em;
+    height: 2em;
+    background: var(--accent);
+    color: #FFFFFF;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 0.95em;
+    margin-top: 0.2em;
+  }
+  .flow-step .step-body {
+    flex-grow: 1;
+    background: var(--slide-soft);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.55em 0.85em;
+    display: flex;
+    justify-content: space-between;
+    gap: 1em;
+    align-items: center;
+  }
+  .flow-step .step-name {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 0.95em;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .flow-step .step-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68em;
+    color: var(--ink-3);
+    text-align: right;
+    line-height: 1.3;
+    max-width: 14em;
+  }
+  .flow-step::after {
+    content: '';
+    position: absolute;
+    left: 1em;
+    top: 2.4em;
+    bottom: -0.6em;
+    width: 1.5px;
+    background: var(--line);
+    z-index: 0;
+  }
+  .flow-step:last-child::after { display: none; }
+
+  .slide-5 .side-col {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    min-height: 0;
+  }
+  .justify-card {
+    background: var(--danger-wash);
+    border: 1px solid #F9D0D3;
+    border-radius: 8px;
+    padding: 1.2em 1.3em;
+  }
+  .justify-card .jc-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1em;
+    font-weight: 500;
+    color: var(--danger);
+    margin-bottom: 0.55em;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4em;
+  }
+  .justify-card .jc-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6em;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--danger);
+    opacity: 0.7;
+  }
+  .justify-card ul {
+    list-style: none;
+    font-size: 0.78em;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .justify-card ul li {
+    padding: 0.3em 0 0.3em 1em;
+    position: relative;
+    border-bottom: 1px dashed #F2D7D8;
+  }
+  .justify-card ul li:last-child { border-bottom: none; padding-bottom: 0; }
+  .justify-card ul li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--danger);
+    font-weight: 600;
+  }
+  .justify-card ul li strong { color: var(--danger); font-weight: 600; }
+  .justify-card .note {
+    margin-top: 0.6em;
+    padding-top: 0.6em;
+    border-top: 1px solid #F9D0D3;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.82em;
+    color: var(--ink-3);
+    line-height: 1.35;
+  }
+
+  .decisions-card {
+    background: var(--accent-wash-2);
+    border: 1px solid #D0DCF4;
+    border-radius: 8px;
+    padding: 1em 1.3em;
+  }
+  .decisions-card .dc-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 0.95em;
+    color: var(--accent-deep);
+    margin-bottom: 0.4em;
+  }
+  .decisions-card ul {
+    list-style: none;
+    font-size: 0.78em;
+    line-height: 1.4;
+  }
+  .decisions-card ul li {
+    padding: 0.25em 0 0.25em 1.1em;
+    position: relative;
+    color: var(--ink-2);
+  }
+  .decisions-card ul li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .decisions-card ul li strong { color: var(--accent-deep); font-weight: 600; }
+
+  /* ============================================================
+     SLIDE 6 — FEATURES + CLASS WEIGHTS
+     ============================================================ */
+  .slide-6 .content {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    gap: 2.2em;
+    align-items: stretch;
+  }
+  .feat-table-wrap .intro {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.92em;
+    color: var(--ink-3);
+    margin-bottom: 0.8em;
+    line-height: 1.4;
+  }
+  .feat-table {
+    width: 100%;
+    font-size: 0.85em;
+  }
+  .feat-table th {
+    padding: 0.5em 0.7em;
+  }
+  .feat-table td {
+    padding: 0.55em 0.7em;
+    vertical-align: middle;
+  }
+  .feat-table td.g-num {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.2em;
+    color: var(--accent);
+    text-align: right;
+    width: 2.8em;
+  }
+  .feat-table td.g-name {
+    font-weight: 600;
+    color: var(--ink);
+    width: 8em;
+  }
+  .feat-table td.g-feats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82em;
+    color: var(--ink-3);
+    line-height: 1.4;
+  }
+  .feat-table tr.total-row td {
+    border-top: 1.5px solid var(--ink);
+    border-bottom: none;
+    padding-top: 0.7em;
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1em;
+    color: var(--ink);
+  }
+  .feat-table tr.total-row td.g-num { font-size: 1.4em; }
+
+  .exclude-box {
+    margin-top: 0.9em;
+    padding: 0.8em 1em;
+    background: var(--danger-wash);
+    border-left: 3px solid var(--danger);
+    border-radius: 4px;
+    font-size: 0.75em;
+    line-height: 1.55;
+    color: var(--ink-3);
+  }
+  .exclude-box .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    font-weight: 600;
+    color: var(--danger);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.25em;
+  }
+
+  .target-line {
+    margin-top: 0.6em;
+    padding: 0.55em 0.9em;
+    background: var(--slide-wash);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    color: var(--ink-3);
+    line-height: 1.4;
+  }
+  .target-line strong { color: var(--accent-deep); }
+
+  /* class weights chart */
+  .weights-block {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    height: 100%;
+  }
+  .weights-block .eyebrow { margin-bottom: 0; }
+  .weights-chart {
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.7em;
+    align-items: flex-end;
+    padding: 2em 0 0.5em 0;
+    position: relative;
+    min-height: 14em;
+  }
+  .weights-chart::before {
+    content: 'peso neutro = 1.0';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% - (1 / 8 * 100%) - 0.4em);
+    border-top: 1.5px dashed var(--ink-4);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62em;
+    text-align: right;
+    color: var(--ink-4);
+    padding-right: 0.3em;
+  }
+  .w-bar {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .w-bar .w-fill {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 0.4em;
+    background: var(--accent);
+  }
+  .w-bar.maligno .w-fill { background: linear-gradient(180deg, var(--danger), #7F1D1D); }
+  .w-bar.benigno .w-fill { background: linear-gradient(180deg, var(--success), #065F46); }
+  .w-bar .w-val {
+    position: absolute;
+    top: -1.6em;
+    font-family: 'Fraunces', serif;
+    font-size: 0.92em;
+    font-weight: 500;
+    color: var(--ink);
+    font-feature-settings: "tnum";
+  }
+  .w-bar .w-label {
+    margin-top: 0.3em;
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 0.9em;
+    color: var(--ink);
+  }
+  .w-bar .w-n {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6em;
+    color: var(--ink-4);
+  }
+  .w-bar.mel .w-fill { box-shadow: 0 0 0 2px var(--cls-mel); }
+  .w-bar.mel .w-val { color: var(--danger); font-weight: 700; }
+
+  .weights-note {
+    padding: 0.8em 1em;
+    background: var(--slide-soft);
+    border-radius: 6px;
+    font-size: 0.78em;
+    line-height: 1.5;
+    color: var(--ink-2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+  }
+  .weights-note .bigratio {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.1em;
+    color: var(--danger);
+  }
+  .weights-note code { font-size: 0.88em; }
+
+  /* ============================================================
+     SLIDE 7 — PDI PIPELINE
+     ============================================================ */
+  .slide-7 .content {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 1.1em;
+  }
+  .pdi-flow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.8em;
+    align-items: stretch;
+  }
+  .pdi-step {
+    background: var(--slide-soft);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.9em 1em 0.8em 1em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3em;
+    position: relative;
+  }
+  .pdi-step .pstep-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .pdi-step .pstep-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 0.98em;
+    color: var(--ink);
+    line-height: 1.15;
+  }
+  .pdi-step .pstep-method {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    color: var(--accent-deep);
+    font-weight: 500;
+  }
+  .pdi-step .pstep-reason {
+    font-size: 0.72em;
+    font-style: italic;
+    color: var(--ink-3);
+    line-height: 1.35;
+    margin-top: 0.25em;
+  }
+  .pdi-step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -0.85em;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.3em;
+    color: var(--accent);
+    font-weight: 300;
+    background: var(--slide);
+    width: 1.2em;
+    height: 1.2em;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    z-index: 2;
+  }
+
+  .otsu-box {
+    background: var(--accent-wash-2);
+    border: 1px solid #CDD9F3;
+    border-radius: 8px;
+    padding: 1.1em 1.3em;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 1.5em;
+    align-items: center;
+  }
+  .otsu-box .otsu-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.15em;
+    color: var(--accent-deep);
+    margin-bottom: 0.5em;
+  }
+  .otsu-box .otsu-title em { font-style: italic; font-weight: 400; }
+  .otsu-box ul {
+    list-style: none;
+    font-size: 0.84em;
+    line-height: 1.5;
+    color: var(--ink-2);
+  }
+  .otsu-box ul li {
+    padding: 0.25em 0 0.25em 1em;
+    position: relative;
+  }
+  .otsu-box ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+  }
+  .otsu-box ul li strong { color: var(--accent-deep); font-weight: 600; }
+  .otsu-box ul li code { background: rgba(255,255,255,0.6); }
+
+  .otsu-viz {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3em;
+  }
+  .otsu-viz svg { width: 100%; height: auto; max-width: 14em; }
+  .otsu-viz .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68em;
+    font-style: italic;
+    color: var(--ink-3);
+    text-align: center;
+  }
+  .otsu-viz .formula strong { color: var(--accent-deep); font-weight: 500; }
+
+  .pdi-results {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1em;
+  }
+  .result-card {
+    background: var(--slide-soft);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.85em 1.1em;
+  }
+  .result-card .rc-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68em;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-4);
+    margin-bottom: 0.3em;
+  }
+  .result-card ul {
+    list-style: none;
+    font-size: 0.78em;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .result-card ul li {
+    padding: 0.2em 0 0.2em 0.9em;
+    position: relative;
+  }
+  .result-card ul li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--success);
+    font-weight: 700;
+  }
+  .result-card ul li strong { color: var(--ink); font-weight: 600; }
+  .result-card .hi { color: var(--success); font-weight: 600; }
+
+  /* ============================================================
+     SLIDE 8 — EXTRACTION + MERGE
+     ============================================================ */
+  .slide-8 .content {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 1.8em;
+    grid-template-rows: 1fr auto;
+  }
+  .slide-8 .content > .left-col { grid-row: 1 / 3; }
+  .slide-8 .content > .right-col { grid-row: 1 / 2; }
+  .slide-8 .content > .merge-footer { grid-column: 2 / 3; grid-row: 2 / 3; }
+
+  .pdi-feat-table .intro {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.85em;
+    color: var(--ink-3);
+    margin-bottom: 0.5em;
+    line-height: 1.4;
+  }
+  .pdi-feat-table table { font-size: 0.78em; }
+  .pdi-feat-table th {
+    padding: 0.5em 0.5em;
+    font-size: 0.68em;
+  }
+  .pdi-feat-table td {
+    padding: 0.55em 0.5em;
+    vertical-align: top;
+    line-height: 1.35;
+  }
+  .pdi-feat-table td.p-count {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1.15em;
+    color: var(--accent);
+    text-align: right;
+    width: 2.2em;
+  }
+  .pdi-feat-table td.p-group {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 0.95em;
+    color: var(--ink);
+    width: 6em;
+  }
+  .pdi-feat-table td.p-feats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88em;
+    color: var(--ink-3);
+    width: 14em;
+  }
+  .pdi-feat-table td.p-abcde {
+    font-size: 0.85em;
+    color: var(--ink-3);
+  }
+  .pdi-feat-table td.p-abcde strong {
+    color: var(--accent-deep);
+    font-weight: 600;
+  }
+  .pdi-feat-table tr.total-row td {
+    border-top: 1.5px solid var(--ink);
+    padding-top: 0.7em;
+    border-bottom: none;
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .pdi-feat-table tr.total-row td.p-count { font-size: 1.4em; }
+
+  .cut-note {
+    margin-top: 0.5em;
+    padding: 0.55em 0.8em;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 0.75em;
+    color: var(--ink-3);
+    line-height: 1.4;
+    background: var(--slide-soft);
+    border-left: 2px solid var(--warning);
+    border-radius: 3px;
+  }
+  .cut-note strong { color: var(--warning); font-style: normal; }
+
+  .mi-block .mi-title {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 1em;
+    color: var(--ink);
+    margin-bottom: 0.4em;
+  }
+  .mi-table {
+    width: 100%;
+    font-size: 0.8em;
+    margin-bottom: 0.7em;
+  }
+  .mi-table th { padding: 0.4em 0.5em; font-size: 0.66em; }
+  .mi-table td { padding: 0.45em 0.5em; }
+  .mi-table .mi-rank {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    color: var(--ink-4);
+    width: 1.5em;
+  }
+  .mi-table .mi-feat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95em;
+    color: var(--ink);
+  }
+  .mi-table .mi-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    color: var(--accent);
+    text-align: right;
+    font-feature-settings: "tnum";
+  }
+  .mi-table .origin {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.88em;
+    text-align: center;
+    width: 2.6em;
+  }
+  .mi-table .origin.pdi { color: var(--danger); font-weight: 600; }
+  .mi-table .origin.tab { color: var(--ink-4); }
+  .mi-table tr.hi-row {
+    background: var(--accent-wash-2);
+  }
+  .mi-table tr.hi-row .mi-feat,
+  .mi-table tr.hi-row .mi-score { color: var(--accent-deep); font-weight: 600; }
+
+  .mi-insights {
+    list-style: none;
+    font-size: 0.76em;
+    line-height: 1.45;
+    color: var(--ink-2);
+  }
+  .mi-insights li {
+    padding: 0.3em 0 0.3em 1em;
+    position: relative;
+  }
+  .mi-insights li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .mi-insights li strong { color: var(--ink); font-weight: 600; }
+  .mi-insights li .em {
+    color: var(--accent-deep);
+    font-weight: 600;
+  }
+
+  .merge-footer {
+    background: var(--ink);
+    color: #FFFFFF;
+    border-radius: 6px;
+    padding: 0.9em 1.2em;
+    display: flex;
+    align-items: center;
+    gap: 1em;
+    position: relative;
+    overflow: hidden;
+  }
+  .merge-footer::after {
+    content: '';
+    position: absolute;
+    top: -30%; right: -10%;
+    width: 160px; height: 160px;
+    background: radial-gradient(circle, rgba(46, 111, 255, 0.3) 0%, transparent 70%);
+  }
+  .merge-eq {
+    display: flex;
+    align-items: center;
+    gap: 0.7em;
+    font-family: 'Fraunces', serif;
+    font-size: 1.05em;
+    font-weight: 400;
+    position: relative;
+    z-index: 1;
+  }
+  .merge-eq .num {
+    font-weight: 500;
+    color: #FFFFFF;
+    font-feature-settings: "tnum";
+  }
+  .merge-eq .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6em;
+    color: #8FACDD;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: block;
+    margin-top: 0.05em;
+  }
+  .merge-eq .op {
+    color: var(--accent-bright);
+    font-weight: 300;
+    font-size: 1.4em;
+    font-style: italic;
+  }
+  .merge-eq .result {
+    font-size: 1.3em;
+    color: #FFFFFF;
+    font-weight: 500;
+  }
+  .merge-meta {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62em;
+    color: #8FACDD;
+    line-height: 1.4;
+    text-align: right;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     NAVIGATION CONTROLS
+     ============================================================ */
+  .nav {
+    position: fixed;
+    bottom: 1.5vh;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1.2em;
+    padding: 0.7em 1.2em;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    box-shadow: 0 20px 40px -20px rgba(12, 32, 80, 0.15);
+    z-index: 10;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    transition: all 0.2s ease;
+  }
+  .nav-btn:hover:not(:disabled) {
+    background: var(--accent);
+    color: #FFFFFF;
+    border-color: var(--accent);
+  }
+  .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .nav-counter {
+    color: var(--ink-3);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    min-width: 4em;
+    text-align: center;
+  }
+  .nav-counter .current { color: var(--ink); font-weight: 600; }
+  .nav-counter .total { color: var(--ink-4); }
+  .nav-dots {
+    display: flex;
+    gap: 0.4em;
+  }
+  .nav-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--line);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    padding: 0;
+  }
+  .nav-dot:hover { background: var(--accent-bright); }
+  .nav-dot.active {
+    background: var(--accent);
+    width: 22px;
+    border-radius: 4px;
+  }
+
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: transparent;
+    z-index: 20;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-deep), var(--accent), var(--accent-bright));
+    width: 0%;
+    transition: width 0.45s cubic-bezier(0.22,0.61,0.36,1);
+    box-shadow: 0 0 12px rgba(46, 111, 255, 0.5);
+  }
+
+  .fullscreen-btn {
+    position: fixed;
+    top: 1vh;
+    right: 1vw;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--line);
+    color: var(--ink-3);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    z-index: 11;
+    transition: all 0.2s ease;
+  }
+  .fullscreen-btn:hover {
+    background: var(--accent);
+    color: #FFFFFF;
+    border-color: var(--accent);
+  }
+
+  .hint {
+    position: fixed;
+    top: 1vh;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--ink-4);
+    letter-spacing: 0.05em;
+    z-index: 11;
+    opacity: 0.7;
+  }
+  .hint kbd {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink-2);
+    font-size: 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div class="hint">
+  navegue com <kbd>←</kbd> <kbd>→</kbd> &nbsp;·&nbsp; tela cheia: <kbd>F</kbd>
+</div>
+
+<button class="fullscreen-btn" id="fullscreenBtn" title="Fullscreen (F)">⛶</button>
+
+<div class="deck" id="deck">
+
+  <!-- ============================================================
+       SLIDE 1 — COVER
+       ============================================================ -->
+  <div class="slide slide-1 active" data-slide="1">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 1 <span class="separator">·</span> DATASET</span>
+        </div>
+        <div class="slide-index"><span class="current">01</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div class="cover-grid">
+        <div class="cover-left">
+          <h1>
+            <span class="brand">PAD-UFES-20</span>
+            <span class="dash"></span>
+            <span class="sub">Classificação de Lesões de Pele<br>a partir de fotos clínicas</span>
+          </h1>
+          <p class="lede">
+            Programa de assistência dermatológica da <strong>Universidade Federal do Espírito Santo</strong>.
+            Imagens <strong>clínicas de smartphone</strong> — não dermatoscópicas — com metadados
+            do paciente e da lesão. Dataset público, disponível no Mendeley Data.
+          </p>
+
+          <div class="cover-task">
+            <span class="label">Tarefa</span>
+            <span class="val">classificar a lesão a partir da imagem</span>
+          </div>
+        </div>
+
+        <div class="cover-stats">
+          <div class="stat">
+            <span class="value">2.298</span>
+            <span class="label">imagens</span>
+          </div>
+          <div class="stat">
+            <span class="value">1.373</span>
+            <span class="label">pacientes</span>
+          </div>
+          <div class="stat">
+            <span class="value">1.641</span>
+            <span class="label">lesões</span>
+          </div>
+          <div class="stat">
+            <span class="value">6</span>
+            <span class="label">classes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">PAD-UFES-20 · Pacheco et al., Data in Brief 2020</div>
+        <div>Apresentação · ~15 min</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 2 — CLASSES + IMBALANCE
+       ============================================================ -->
+  <div class="slide slide-2" data-slide="2">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 1 <span class="separator">·</span> DATASET</span>
+        </div>
+        <div class="slide-index"><span class="current">02</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">Distribuição de classes</span>
+        <h1 class="title">Seis classes — três malignas, uma <em>pré-maligna</em>, duas benignas</h1>
+      </div>
+
+      <div class="content">
+        <div style="position: relative;">
+          <div class="bar-chart">
+            <div class="bar-item">
+              <div class="bar bar--bcc" style="height: 87%;">
+                <span class="bar-pct">845 · 36.8%</span>
+                <span class="bar-value"></span>
+              </div>
+              <div class="bar-label">BCC</div>
+              <div class="bar-type">Maligno</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar bar--ack" style="height: 75%;">
+                <span class="bar-pct">730 · 31.8%</span>
+              </div>
+              <div class="bar-label">ACK</div>
+              <div class="bar-type">Pré-maligno</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar bar--nev" style="height: 25%;">
+                <span class="bar-pct">244 · 10.6%</span>
+              </div>
+              <div class="bar-label">NEV</div>
+              <div class="bar-type">Benigno</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar bar--sek" style="height: 24%;">
+                <span class="bar-pct">235 · 10.2%</span>
+              </div>
+              <div class="bar-label">SEK</div>
+              <div class="bar-type">Benigno</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar bar--scc" style="height: 20%;">
+                <span class="bar-pct">192 · 8.4%</span>
+              </div>
+              <div class="bar-label">SCC</div>
+              <div class="bar-type">Maligno</div>
+            </div>
+            <div class="bar-item">
+              <div class="bar bar--mel" style="height: 5.5%;">
+                <span class="bar-pct">52 · 2.3%</span>
+              </div>
+              <div class="bar-label">MEL</div>
+              <div class="bar-type">Maligno</div>
+            </div>
+          </div>
+
+          <div class="mel-callout">
+            o mais letal do dataset
+            <strong>só 52 amostras</strong>
+          </div>
+        </div>
+
+        <div class="classes-side">
+          <div class="imbalance-card">
+            <span class="eyebrow">Desbalanceamento</span>
+            <div class="bignum">16<span class="op">×</span></div>
+            <div class="caption">
+              entre a classe majoritária (<strong>BCC</strong>) e a minoritária (<strong>MEL</strong>) —
+              justamente <em>a mais letal</em>. Qualquer modelo otimizado por acurácia
+              bruta vai ignorar o melanoma.
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr><th>Sigla</th><th>Nome</th><th>Tipo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>BCC</strong></td><td>Carcinoma Basocelular</td><td style="color: var(--cls-bcc); font-weight: 600;">maligno</td></tr>
+              <tr><td><strong>ACK</strong></td><td>Ceratose Actínica</td><td style="color: var(--cls-ack); font-weight: 600;">pré-mal.</td></tr>
+              <tr><td><strong>NEV</strong></td><td>Nevo (pinta)</td><td style="color: var(--cls-nev); font-weight: 600;">benigno</td></tr>
+              <tr><td><strong>SEK</strong></td><td>Ceratose Seborreica</td><td style="color: var(--cls-sek); font-weight: 600;">benigno</td></tr>
+              <tr><td><strong>SCC</strong></td><td>Carcinoma Espinocelular</td><td style="color: var(--cls-scc); font-weight: 600;">maligno</td></tr>
+              <tr><td><strong>MEL</strong></td><td>Melanoma</td><td style="color: var(--cls-mel); font-weight: 700;">maligno</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">distribuição · 2298 imagens · 6 classes</div>
+        <div>Métricas por classe obrigatórias</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 3 — SAMPLE CONTENTS
+       ============================================================ -->
+  <div class="slide slide-3" data-slide="3">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 1 <span class="separator">·</span> DATASET</span>
+        </div>
+        <div class="slide-index"><span class="current">03</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">O que cada amostra contém</span>
+        <h1 class="title">Imagem <em>+</em> 26 colunas de metadados clínicos</h1>
+      </div>
+
+      <div class="content">
+        <div class="source-block">
+          <h3><span class="num">01</span> Imagem</h3>
+          <div class="divider"></div>
+
+          <div class="stats-row">
+            <div class="stat-inline">
+              <div class="value">189–3.096</div>
+              <span class="label">px (mediana ~772)</span>
+            </div>
+            <div class="stat-inline">
+              <div class="value">RGB / RGBA</div>
+              <span class="label">modos de cor mistos</span>
+            </div>
+          </div>
+
+          <ul class="bullet-list">
+            <li><strong>PNG</strong> com tamanho variável, maioria quadrada mas não todas</li>
+            <li>Tiradas com <strong>smartphone</strong>, não dermatoscópicas</li>
+            <li>Iluminação irregular, pelo, sombras, <strong>fundo de pele</strong> ao redor</li>
+            <li>Lesão frequentemente <strong>não centralizada</strong></li>
+          </ul>
+        </div>
+
+        <div class="source-block">
+          <h3><span class="num">02</span> Metadados</h3>
+          <div class="divider"></div>
+
+          <div class="meta-categories">
+            <div class="meta-cat">
+              <div class="cat-title">Paciente</div>
+              <div class="cat-items">idade (6–94), sexo, Fitzpatrick (1–6), histórico de câncer</div>
+            </div>
+            <div class="meta-cat">
+              <div class="cat-title">Lesão</div>
+              <div class="cat-items">região do corpo (14), diâmetros (mm)</div>
+            </div>
+            <div class="meta-cat">
+              <div class="cat-title">Sintomas</div>
+              <div class="cat-items">coça, cresceu, dói, mudou, sangra, elevação</div>
+            </div>
+            <div class="meta-cat">
+              <div class="cat-title">Diagnóstico</div>
+              <div class="cat-items">alvo · 6 classes · biopsed flag</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="keymsg">
+        <strong>Duas fontes complementares:</strong> da imagem extraímos features por PDI
+        (cor, textura, forma); dos metadados aproveitamos os sinais clínicos
+        (idade, fotótipo, sintomas, região). O modelo final combina os dois.
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">2 fontes · 1 target · 26 colunas brutas</div>
+        <div>Imagem + metadados = modelo</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 4 — THREE TRAPS
+       ============================================================ -->
+  <div class="slide slide-4" data-slide="4">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 1 <span class="separator">·</span> DATASET</span>
+        </div>
+        <div class="slide-index"><span class="current">04</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">Armadilhas descobertas</span>
+        <h1 class="title">Três descobertas <em>moldaram</em> todo o projeto</h1>
+      </div>
+
+      <div class="content">
+        <div class="trap-card">
+          <div class="trap-num">01</div>
+          <div class="trap-title">Vazamento por paciente</div>
+          <div class="trap-body">
+            <strong>2298 imagens</strong> mas só <strong>1641 lesões</strong> e
+            <strong>1373 pacientes</strong>. Várias fotos da mesma lesão; vários
+            pacientes com múltiplas lesões.
+            <br><br>
+            Split aleatório → fotos quase idênticas em treino e teste → <em>métricas infladas</em>.
+          </div>
+          <div class="trap-decision">
+            <span class="d-label">Decisão</span>
+            Split <strong>por paciente</strong>, não por imagem
+          </div>
+        </div>
+
+        <div class="trap-card">
+          <div class="trap-num">02</div>
+          <div class="trap-title"><code>biopsed</code> é leak</div>
+          <div class="trap-body">
+            <strong>100% dos malignos</strong> foram biopsiados.
+            Na coleta, biópsia acontece <em>depois</em> da suspeita clínica — é
+            consequência causal do diagnóstico.
+          </div>
+
+          <div class="mini-crosstab">
+            <table>
+              <thead>
+                <tr><th></th><th class="ta-r">F</th><th class="ta-r">T</th></tr>
+              </thead>
+              <tbody>
+                <tr><td class="malig">BCC</td><td class="ta-r">0</td><td class="ta-r malig">845</td></tr>
+                <tr><td class="malig">MEL</td><td class="ta-r">0</td><td class="ta-r malig">52</td></tr>
+                <tr><td class="malig">SCC</td><td class="ta-r">0</td><td class="ta-r malig">192</td></tr>
+                <tr><td class="benig">ACK</td><td class="ta-r">552</td><td class="ta-r">178</td></tr>
+                <tr><td class="benig">NEV</td><td class="ta-r">184</td><td class="ta-r">60</td></tr>
+                <tr><td class="benig">SEK</td><td class="ta-r">220</td><td class="ta-r">15</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="trap-decision">
+            <span class="d-label">Decisão</span>
+            Remover <code>biopsed</code> das features
+          </div>
+        </div>
+
+        <div class="trap-card">
+          <div class="trap-num">03</div>
+          <div class="trap-title">35% de metadados ausentes <em>em bloco</em></div>
+          <div class="trap-body">
+            <strong>13 colunas</strong> têm exatamente <strong>804 NaNs</strong> cada — dois
+            formulários distintos de coleta.
+            <br><br>
+            <em>Zero BCC, zero MEL, zero SCC</em> entre as 804 linhas → a missingness
+            é <strong>MNAR outcome-dependent</strong>, proxy quase perfeito do diagnóstico.
+          </div>
+          <div class="trap-decision">
+            <span class="d-label">Decisão</span>
+            Dropar as 13 colunas. <em>Imputar seria leak mascarado</em>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">armadilhas detectadas na EDA</div>
+        <div>Essas 3 descobertas justificam todo o pipeline</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 5 — METADATA PIPELINE
+       ============================================================ -->
+  <div class="slide slide-5" data-slide="5">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 2 <span class="separator">·</span> PRÉ-PROCESSAMENTO METADADOS</span>
+        </div>
+        <div class="slide-index"><span class="current">05</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">Pré-processamento dos metadados</span>
+        <h1 class="title">Pipeline e decisões — <em>como não trapacear</em></h1>
+      </div>
+
+      <div class="content">
+        <div class="flowchart">
+          <div class="flow-step">
+            <div class="num-badge">1</div>
+            <div class="step-body">
+              <div class="step-name">CSV bruto</div>
+              <div class="step-note">2298 × 26 cols<br>13 cols c/ 35% missing</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">2</div>
+            <div class="step-body">
+              <div class="step-name">Verificação de qualidade</div>
+              <div class="step-note">0 duplicatas · img_id único<br>512 lesões multi-foto</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">3</div>
+            <div class="step-body">
+              <div class="step-name">Drop de leak + bloco MNAR</div>
+              <div class="step-note">− biopsed (causal reverso)<br>− 13 cols outcome-dependent</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">4</div>
+            <div class="step-body">
+              <div class="step-name">UNK handling + feature eng</div>
+              <div class="step-note">grew/changed: 17% UNK<br>+ symptom_count (ABCDE)</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">5</div>
+            <div class="step-body">
+              <div class="step-name">Análise de outliers (doc)</div>
+              <div class="step-note">53 outliers em age<br>94% NEV jovem → preservar</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">6</div>
+            <div class="step-body">
+              <div class="step-name">Split por paciente + drift check</div>
+              <div class="step-note">StratifiedGroupKFold 64/16/20<br>zero overlap · Δage = 0</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">7</div>
+            <div class="step-body">
+              <div class="step-name">Encoding + scaling (fit só no train)</div>
+              <div class="step-note">OHE(region) · Scaler(age)<br>LabelEncoder(diagnostic)</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="num-badge">8</div>
+            <div class="step-body">
+              <div class="step-name">Persistência</div>
+              <div class="step-note">train/val/test.parquet<br>+ pipeline.joblib</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-col">
+          <div class="justify-card">
+            <div class="jc-title">
+              <span class="jc-label">Justificativa</span>
+              Imputar seria leak mascarado
+            </div>
+            <ul>
+              <li><strong>Ma & Zhang (NeurIPS 2021):</strong> MNAR não é identificável — mesmo com infinitas amostras, a imputação fica enviesada</li>
+              <li><strong>Sisk et al. (2023):</strong> missing indicators em outcome-dependent missingness são <em>harmful</em></li>
+              <li>MICE, missForest, KNN → todos criam assinatura detectável como proxy do diagnóstico</li>
+            </ul>
+            <div class="note">Sinal biológico real (fotótipo, diâmetros) será recuperado via PDI da imagem.</div>
+          </div>
+
+          <div class="decisions-card">
+            <div class="dc-title">Decisões-chave do pipeline</div>
+            <ul>
+              <li><strong>Zero imputação</strong> — após drops, dataset fica 100% completo</li>
+              <li><strong>Split por patient_id</strong> — evita vazamento entre fotos da mesma lesão</li>
+              <li><strong>fit_transform só no treino</strong> — <code>ColumnTransformer</code> do sklearn impede leak por construção</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">pipeline sklearn · fit-on-train · reproduzível</div>
+        <div>Zero imputação · Zero leak</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 6 — FEATURES + CLASS WEIGHTS
+       ============================================================ -->
+  <div class="slide slide-6" data-slide="6">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 2 <span class="separator">·</span> PRÉ-PROCESSAMENTO METADADOS</span>
+        </div>
+        <div class="slide-index"><span class="current">06</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">24 features finais</span>
+        <h1 class="title">Features tabulares <em>+</em> compensação do desbalanceamento</h1>
+      </div>
+
+      <div class="content">
+        <div class="feat-table-wrap">
+          <div class="intro">Nenhuma feature clínica sensível ao protocolo de coleta (MNAR) entra no modelo.</div>
+
+          <table class="feat-table">
+            <thead>
+              <tr><th class="ta-r">#</th><th>Grupo</th><th>Features</th><th>Transformação</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="g-num">1</td>
+                <td class="g-name">Numérica</td>
+                <td class="g-feats">age</td>
+                <td>StandardScaler</td>
+              </tr>
+              <tr>
+                <td class="g-num">14</td>
+                <td class="g-name">Categórica</td>
+                <td class="g-feats">region_* (14 regiões, raras agrupadas)</td>
+                <td>OneHotEncoder</td>
+              </tr>
+              <tr>
+                <td class="g-num">6</td>
+                <td class="g-name">Sintomas</td>
+                <td class="g-feats">itch, grew, hurt, changed, bleed, elevation</td>
+                <td>passthrough</td>
+              </tr>
+              <tr>
+                <td class="g-num">2</td>
+                <td class="g-name">Flags UNK</td>
+                <td class="g-feats">grew_unknown, changed_unknown</td>
+                <td>passthrough</td>
+              </tr>
+              <tr>
+                <td class="g-num">1</td>
+                <td class="g-name">Derivada</td>
+                <td class="g-feats">symptom_count (soma ABCDE)</td>
+                <td>passthrough</td>
+              </tr>
+              <tr class="total-row">
+                <td class="g-num">24</td>
+                <td class="g-name">Total</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="exclude-box">
+            <span class="lbl">O que NÃO entra</span>
+            <strong>×</strong> <code>biopsed</code> (leak) ·
+            <strong>×</strong> <code>fitspatrick</code>, <code>diameter_1/2</code> (MNAR — recuperados via PDI) ·
+            <strong>×</strong> <code>smoke</code>, <code>drink</code>, <code>gender</code>, histórico familiar, socioeconômicos, ancestralidade
+          </div>
+
+          <div class="target-line">
+            <strong>Target:</strong> <code>diagnostic</code> → LabelEncoder → {ACK:0, BCC:1, MEL:2, NEV:3, SCC:4, SEK:5}
+          </div>
+        </div>
+
+        <div class="weights-block">
+          <div>
+            <span class="eyebrow">Class weights — balanced</span>
+            <div style="font-family: 'Fraunces', serif; font-size: 1em; color: var(--ink); margin-top: 0.2em;">
+              Um erro em MEL <em>dói 16× mais</em>
+            </div>
+          </div>
+
+          <div class="weights-chart">
+            <div class="w-bar benigno">
+              <div class="w-val">0.53</div>
+              <div class="w-fill" style="height: 6.6%;"></div>
+              <div class="w-label">ACK</div>
+              <div class="w-n">n=467</div>
+            </div>
+            <div class="w-bar maligno">
+              <div class="w-val">0.45</div>
+              <div class="w-fill" style="height: 5.6%;"></div>
+              <div class="w-label">BCC</div>
+              <div class="w-n">n=541</div>
+            </div>
+            <div class="w-bar maligno mel">
+              <div class="w-val">7.42</div>
+              <div class="w-fill" style="height: 93%;"></div>
+              <div class="w-label">MEL</div>
+              <div class="w-n">n=33</div>
+            </div>
+            <div class="w-bar benigno">
+              <div class="w-val">1.57</div>
+              <div class="w-fill" style="height: 19.6%;"></div>
+              <div class="w-label">NEV</div>
+              <div class="w-n">n=156</div>
+            </div>
+            <div class="w-bar maligno">
+              <div class="w-val">1.99</div>
+              <div class="w-fill" style="height: 24.9%;"></div>
+              <div class="w-label">SCC</div>
+              <div class="w-n">n=123</div>
+            </div>
+            <div class="w-bar benigno">
+              <div class="w-val">1.63</div>
+              <div class="w-fill" style="height: 20.4%;"></div>
+              <div class="w-label">SEK</div>
+              <div class="w-n">n=150</div>
+            </div>
+          </div>
+
+          <div class="weights-note">
+            <div><span class="bigratio">Razão 16.4×</span> entre MEL (raro) e BCC (comum)</div>
+            <div>Fórmula: <code>w[c] = n_samples / (n_classes × count[c])</code></div>
+            <div style="color: var(--ink-4); font-size: 0.9em;">Dataset fica <strong>intacto</strong> — os 33 melanomas continuam 33</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">train/val/test.parquet · pipeline.joblib · class_weights.joblib</div>
+        <div>24 features · 6 classes · balanced weights</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 7 — PDI PIPELINE + OTSU
+       ============================================================ -->
+  <div class="slide slide-7" data-slide="7">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 3 <span class="separator">·</span> PRÉ-PROCESSAMENTO IMAGENS</span>
+        </div>
+        <div class="slide-index"><span class="current">07</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">Pipeline PDI</span>
+        <h1 class="title">Quatro etapas <em>+ Otsu</em> — isolar a lesão real</h1>
+      </div>
+
+      <div class="content">
+        <div class="pdi-flow">
+          <div class="pdi-step">
+            <div class="pstep-num">01</div>
+            <div class="pstep-title">Hair removal</div>
+            <div class="pstep-method">DullRazor</div>
+            <div class="pstep-reason">blackhat + inpaint. Elimina pelo que contaminaria features de textura.</div>
+          </div>
+          <div class="pdi-step">
+            <div class="pstep-num">02</div>
+            <div class="pstep-title">Color constancy</div>
+            <div class="pstep-method">Shades of Gray</div>
+            <div class="pstep-reason">Finlayson (p=6). Normaliza balanço de branco entre smartphones.</div>
+          </div>
+          <div class="pdi-step">
+            <div class="pstep-num">03</div>
+            <div class="pstep-title">Segmentação</div>
+            <div class="pstep-method">Otsu no LAB L*</div>
+            <div class="pstep-reason">Isola a lesão. Fallback automático quando Otsu falha.</div>
+          </div>
+          <div class="pdi-step">
+            <div class="pstep-num">04</div>
+            <div class="pstep-title">Crop + resize</div>
+            <div class="pstep-method">bbox quadrada, 256×256</div>
+            <div class="pstep-reason">Padding 10%. Preserva aspect ratio — não distorce assimetria.</div>
+          </div>
+        </div>
+
+        <div class="otsu-box">
+          <div>
+            <div class="otsu-title">Otsu <em>(1979)</em> — threshold binário automático</div>
+            <ul>
+              <li>No canal <strong>L* do LAB</strong>, histograma dermatológico é <strong>bimodal</strong>: pico de pele clara + pico de lesão escura</li>
+              <li>Otsu varre 256 valores e escolhe o que <strong>maximiza a variância entre os dois grupos</strong></li>
+              <li><strong>Zero treinado</strong>, ~5 ms por imagem, interpretável — não exige dataset nem GPU</li>
+            </ul>
+          </div>
+
+          <div class="otsu-viz">
+            <svg viewBox="0 0 200 100" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="curve1" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#1652CC" stop-opacity="0.6"/>
+                  <stop offset="100%" stop-color="#1652CC" stop-opacity="0.15"/>
+                </linearGradient>
+                <linearGradient id="curve2" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#2E6FFF" stop-opacity="0.55"/>
+                  <stop offset="100%" stop-color="#2E6FFF" stop-opacity="0.1"/>
+                </linearGradient>
+              </defs>
+              <!-- baseline -->
+              <line x1="8" y1="88" x2="192" y2="88" stroke="#D9E1EF" stroke-width="1"/>
+              <!-- left hill (lesão escura) -->
+              <path d="M 10 88 Q 30 88 40 80 Q 55 30 70 30 Q 85 30 100 75 Q 108 87 115 88 Z"
+                    fill="url(#curve1)" stroke="#0A2E7A" stroke-width="1.2"/>
+              <!-- right hill (pele clara) -->
+              <path d="M 115 88 Q 125 87 135 75 Q 150 30 165 30 Q 180 30 188 80 Q 192 88 192 88 Z"
+                    fill="url(#curve2)" stroke="#2E6FFF" stroke-width="1.2"/>
+              <!-- threshold line -->
+              <line x1="115" y1="10" x2="115" y2="92" stroke="#DC2626" stroke-width="1.5" stroke-dasharray="4 3"/>
+              <text x="115" y="7" font-family="JetBrains Mono, monospace" font-size="8" fill="#DC2626" text-anchor="middle" font-weight="600">T*</text>
+              <!-- labels -->
+              <text x="60" y="100" font-family="Figtree, sans-serif" font-size="7" fill="#485B7A" text-anchor="middle" font-style="italic">lesão</text>
+              <text x="160" y="100" font-family="Figtree, sans-serif" font-size="7" fill="#485B7A" text-anchor="middle" font-style="italic">pele</text>
+            </svg>
+            <div class="formula">maximiza <strong>σ² = ω₀·ω₁·(μ₀ − μ₁)²</strong></div>
+          </div>
+        </div>
+
+        <div class="pdi-results">
+          <div class="result-card">
+            <div class="rc-title">Qualidade da segmentação</div>
+            <ul>
+              <li><strong>2298 / 2298</strong> imagens processadas, zero erros</li>
+              <li><span class="hi">1.5% fallback total</span> (35 imgs) — muito abaixo do 5–10% típico</li>
+              <li><strong>MEL 3.8%</strong> fallback — apenas 2/52, 96% dos melanomas segmentados</li>
+            </ul>
+          </div>
+          <div class="result-card">
+            <div class="rc-title">Output do pipeline</div>
+            <ul>
+              <li><strong>2298 × .npz</strong> contendo <code>{image 256×256×3, mask 256×256}</code></li>
+              <li><strong>326 MB</strong> cacheados em disco · reuso ~5 ms/img</li>
+              <li>Helper: <code>load_processed(img_id) → (image, mask)</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">hair removal · color constancy · Otsu · crop 256×256</div>
+        <div>Features serão extraídas dentro da máscara</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       SLIDE 8 — FEATURE EXTRACTION + MERGE
+       ============================================================ -->
+  <div class="slide slide-8" data-slide="8">
+    <div class="slide-inner">
+      <div class="slide-header">
+        <div class="section-tag">
+          <span class="dot"></span>
+          <span>PARTE 4 <span class="separator">·</span> EXTRAÇÃO + MERGE</span>
+        </div>
+        <div class="slide-index"><span class="current">08</span> <span>/&nbsp;08</span></div>
+      </div>
+
+      <div>
+        <span class="eyebrow">Extração de features + merge</span>
+        <h1 class="title">38 PDI <em>×</em> 24 tabulares → <strong>62 features finais</strong></h1>
+      </div>
+
+      <div class="content">
+        <div class="left-col pdi-feat-table">
+          <div class="intro">Todas extraídas <strong>apenas dentro da máscara</strong> da lesão. Cada grupo responde a uma pergunta clínica do critério ABCDE.</div>
+
+          <table>
+            <thead>
+              <tr>
+                <th class="ta-r">#</th>
+                <th>Grupo</th>
+                <th>Features</th>
+                <th>Captura (ABCDE)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="p-count">12</td>
+                <td class="p-group">Cor</td>
+                <td class="p-feats">lab_{L,a,b}_{mean,std}<br>hsv_{H,S,V}_{mean,std}</td>
+                <td class="p-abcde"><strong>C — Color variation:</strong> cor central + variegação</td>
+              </tr>
+              <tr>
+                <td class="p-count">6</td>
+                <td class="p-group">GLCM</td>
+                <td class="p-feats">contrast, dissimilarity,<br>homogeneity, energy,<br>correlation, ASM</td>
+                <td class="p-abcde">Textura via co-ocorrência (Haralick 1973)</td>
+              </tr>
+              <tr>
+                <td class="p-count">10</td>
+                <td class="p-group">LBP</td>
+                <td class="p-feats">lbp_bin_{0..9}<br>R=1 uniforme</td>
+                <td class="p-abcde">Textura robusta a iluminação: padrões locais</td>
+              </tr>
+              <tr>
+                <td class="p-count">3</td>
+                <td class="p-group">Bordas</td>
+                <td class="p-feats">edge_density<br>border_irregularity<br>border_gradient_std</td>
+                <td class="p-abcde"><strong>B — Border:</strong> detalhe, irregularidade, difusão</td>
+              </tr>
+              <tr>
+                <td class="p-count">7</td>
+                <td class="p-group">Forma</td>
+                <td class="p-feats">compactness, solidity,<br>eccentricity, asymmetry_h/v,<br>convexity_defects, area_ratio</td>
+                <td class="p-abcde"><strong>A/B/D</strong> — só possível com segmentação</td>
+              </tr>
+              <tr class="total-row">
+                <td class="p-count">38</td>
+                <td class="p-group">Total PDI</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="cut-note">
+            <strong>Corte 81 → 38:</strong> removidos RGB (redundante com LAB), skew (ruidoso),
+            LBP R=2 (corr com R=1), Gabor inteiro (redundante com GLCM+LBP), Sobel mean/std
+            (redundante com edge_density). Razão samples/feature → 23.7 (saudável).
+          </div>
+        </div>
+
+        <div class="right-col mi-block">
+          <div class="mi-title">Ranking MI valida as escolhas</div>
+          <table class="mi-table">
+            <thead>
+              <tr><th class="ta-r">#</th><th>Feature</th><th class="ta-r">MI</th><th>Origem</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mi-rank">1</td>
+                <td class="mi-feat">age</td>
+                <td class="mi-score">0.234</td>
+                <td class="origin tab">TAB</td>
+              </tr>
+              <tr class="hi-row">
+                <td class="mi-rank">2</td>
+                <td class="mi-feat">lab_a_std</td>
+                <td class="mi-score">0.202</td>
+                <td class="origin pdi">PDI</td>
+              </tr>
+              <tr>
+                <td class="mi-rank">3</td>
+                <td class="mi-feat">symptom_count</td>
+                <td class="mi-score">0.187</td>
+                <td class="origin tab">TAB</td>
+              </tr>
+              <tr>
+                <td class="mi-rank">4</td>
+                <td class="mi-feat">bleed</td>
+                <td class="mi-score">0.131</td>
+                <td class="origin tab">TAB</td>
+              </tr>
+              <tr>
+                <td class="mi-rank">5</td>
+                <td class="mi-feat">elevation</td>
+                <td class="mi-score">0.128</td>
+                <td class="origin tab">TAB</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <ul class="mi-insights">
+            <li><span class="em">lab_a_std em 2º lugar</span> confirma a escolha de LAB — variação vermelho-verde é o sinal mais forte entre features PDI</li>
+            <li><strong>4 das 7 features de forma</strong> no top 20 — todas impossíveis sem segmentação</li>
+            <li><strong>Max MI = 0.234</strong> &lt; 0.7 → zero leak residual detectado</li>
+          </ul>
+        </div>
+
+        <div class="merge-footer">
+          <div class="merge-eq">
+            <div><span class="num">24</span><span class="lbl">tabulares</span></div>
+            <span class="op">+</span>
+            <div><span class="num">38</span><span class="lbl">PDI</span></div>
+            <span class="op">→</span>
+            <div><span class="result">62</span><span class="lbl">features finais</span></div>
+          </div>
+          <div class="merge-meta">
+            1470 / 368 / 460<br>zero NaN · zero leak
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="credit">pd.merge(validate='one_to_one') · fit_transform só no train</div>
+        <div>Dataset final pronto para modelagem</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     NAVIGATION
+     ============================================================ -->
+<nav class="nav">
+  <button class="nav-btn" id="prevBtn" title="Previous (←)">←</button>
+  <div class="nav-counter">
+    <span class="current" id="counterCurrent">01</span>
+    <span> / </span>
+    <span class="total">08</span>
+  </div>
+  <div class="nav-dots" id="navDots"></div>
+  <button class="nav-btn" id="nextBtn" title="Next (→)">→</button>
+</nav>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  const progressFill = document.getElementById('progressFill');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const counterCurrent = document.getElementById('counterCurrent');
+  const navDots = document.getElementById('navDots');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+  let currentIndex = 0;
+
+  // Build dots
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement('button');
+    dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('aria-label', `Go to slide ${i + 1}`);
+    dot.addEventListener('click', () => goTo(i));
+    navDots.appendChild(dot);
+  }
+
+  function updateUI() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === currentIndex));
+    document.querySelectorAll('.nav-dot').forEach((d, i) =>
+      d.classList.toggle('active', i === currentIndex)
+    );
+    const pct = ((currentIndex + 1) / totalSlides) * 100;
+    progressFill.style.width = pct + '%';
+    counterCurrent.textContent = String(currentIndex + 1).padStart(2, '0');
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === totalSlides - 1;
+  }
+
+  function goTo(i) {
+    currentIndex = Math.max(0, Math.min(totalSlides - 1, i));
+    updateUI();
+  }
+
+  function next() { if (currentIndex < totalSlides - 1) goTo(currentIndex + 1); }
+  function prev() { if (currentIndex > 0) goTo(currentIndex - 1); }
+
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prev(); }
+    else if (e.key === 'Home') { e.preventDefault(); goTo(0); }
+    else if (e.key === 'End') { e.preventDefault(); goTo(totalSlides - 1); }
+    else if (e.key === 'f' || e.key === 'F') { e.preventDefault(); toggleFullscreen(); }
+    else if (/^[1-8]$/.test(e.key)) { e.preventDefault(); goTo(parseInt(e.key, 10) - 1); }
+  });
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  // Click on left/right half of slide to navigate
+  document.querySelector('.deck').addEventListener('click', (e) => {
+    // Only if clicking directly on a slide (not nav/buttons)
+    if (e.target.closest('.nav') || e.target.closest('.fullscreen-btn')) return;
+    const rect = document.querySelector('.slide.active').getBoundingClientRect();
+    const mid = rect.left + rect.width / 2;
+    if (e.clientX > mid + 100) next();
+    else if (e.clientX < mid - 100) prev();
+  });
+
+  updateUI();
+</script>
+
+</body>
+</html>
